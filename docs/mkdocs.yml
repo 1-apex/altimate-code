@@ -1,0 +1,65 @@
+site_name: altimate-code
+site_description: The data engineering agent for dbt, SQL, and cloud warehouses
+site_url: https://altimateai.github.io/altimate-code
+repo_url: https://github.com/AltimateAI/altimate-code
+repo_name: AltimateAI/altimate-code
+
+copyright: "&copy; 2026 Altimate Inc. All rights reserved."
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/images/favicon.png
+  font:
+    text: Roboto
+    code: Roboto Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Agent Modes: agent-modes.md
+  - Tools:
+      - Overview: tools/index.md
+      - SQL Tools: tools/sql-tools.md
+      - Schema Tools: tools/schema-tools.md
+      - FinOps Tools: tools/finops-tools.md
+      - Lineage Tools: tools/lineage-tools.md
+      - dbt Tools: tools/dbt-tools.md
+      - Warehouse Tools: tools/warehouse-tools.md
+  - Guides:
+      - Overview: guides/index.md
+      - Cost Optimization: guides/cost-optimization.md
+      - Migration: guides/migration.md
+      - Using with Claude Code: guides/using-with-claude-code.md
+      - Using with Codex: guides/using-with-codex.md

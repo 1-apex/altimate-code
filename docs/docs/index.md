@@ -1,10 +1,3 @@
----
-layout: default
-title: Home
-nav_order: 1
-permalink: /
----
-
 # altimate-code
 
 **The data engineering agent for dbt, SQL, and cloud warehouses.**
@@ -82,5 +75,5 @@ altimate-code is model-agnostic. Use it with:
 
 ---
 
-{: .note }
-altimate-code is your cost advocate. Every tool is designed to minimize unnecessary warehouse spend. Cost prediction runs before every query, anti-patterns that burn credits are flagged automatically, and cheaper alternatives are always suggested.
+!!! note
+    altimate-code is your cost advocate. Every tool is designed to minimize unnecessary warehouse spend. Cost prediction runs before every query, anti-patterns that burn credits are flagged automatically, and cheaper alternatives are always suggested.

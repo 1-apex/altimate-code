@@ -1,10 +1,3 @@
----
-layout: default
-title: Lineage Tools
-parent: Tools
-nav_order: 4
----
-
 # Lineage Tools
 
 ## lineage_check

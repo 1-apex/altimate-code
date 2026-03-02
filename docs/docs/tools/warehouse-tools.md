@@ -1,10 +1,3 @@
----
-layout: default
-title: Warehouse Tools
-parent: Tools
-nav_order: 6
----
-
 # Warehouse Tools
 
 ## warehouse_list

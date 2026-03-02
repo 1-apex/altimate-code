@@ -1,10 +1,3 @@
----
-layout: default
-title: SQL Tools
-parent: Tools
-nav_order: 1
----
-
 # SQL Tools
 
 ## sql_execute

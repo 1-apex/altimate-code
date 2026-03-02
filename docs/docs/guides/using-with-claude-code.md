@@ -1,10 +1,3 @@
----
-layout: default
-title: Using with Claude Code
-parent: Guides
-nav_order: 3
----
-
 # Using altimate-code with Claude Code
 
 altimate-code can work alongside Claude Code. While Claude Code handles general coding tasks, altimate-code provides specialized data engineering capabilities that Claude Code doesn't have.

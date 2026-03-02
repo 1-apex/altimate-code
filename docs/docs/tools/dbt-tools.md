@@ -1,10 +1,3 @@
----
-layout: default
-title: dbt Tools
-parent: Tools
-nav_order: 5
----
-
 # dbt Tools
 
 ## dbt_run

@@ -1,10 +1,3 @@
----
-layout: default
-title: Migration Guide
-parent: Guides
-nav_order: 2
----
-
 # Migration Guide
 
 Use migrator mode to translate SQL across warehouse dialects while preserving lineage and correctness.

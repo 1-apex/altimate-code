@@ -1,9 +1,3 @@
----
-layout: default
-title: Agent Modes
-nav_order: 3
----
-
 # Agent Modes
 
 altimate-code runs in one of four specialized modes. Each mode has different permissions, tool access, and behavioral guardrails.

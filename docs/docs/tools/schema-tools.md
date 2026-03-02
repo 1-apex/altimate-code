@@ -1,10 +1,3 @@
----
-layout: default
-title: Schema Tools
-parent: Tools
-nav_order: 2
----
-
 # Schema Tools
 
 ## schema_inspect

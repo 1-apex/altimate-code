@@ -1,10 +1,3 @@
----
-layout: default
-title: Cost Optimization Guide
-parent: Guides
-nav_order: 1
----
-
 # Cost Optimization Guide
 
 altimate-code is your cost advocate. Here's how to use it to cut warehouse spend.

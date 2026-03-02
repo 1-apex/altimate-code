@@ -1,10 +1,3 @@
----
-layout: default
-title: FinOps Tools
-parent: Tools
-nav_order: 3
----
-
 # FinOps Tools
 
 Cost optimization and warehouse governance. These tools help you find where money is being wasted and fix it.

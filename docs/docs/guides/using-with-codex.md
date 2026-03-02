@@ -1,10 +1,3 @@
----
-layout: default
-title: Using with Codex
-parent: Guides
-nav_order: 4
----
-
 # Using altimate-code with Codex (ChatGPT Subscription)
 
 If you have a ChatGPT Plus or Pro subscription, you can use Codex as your LLM backend in altimate-code at no additional API cost. Your subscription covers all usage.
