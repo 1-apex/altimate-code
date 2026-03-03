@@ -9,7 +9,31 @@
 import { spawn, type ChildProcess } from "child_process"
 import { existsSync } from "fs"
 import path from "path"
+import { ensureEngine, enginePythonPath } from "./engine"
 import type { BridgeMethod, BridgeMethods } from "./protocol"
+
+/** Resolve the Python interpreter to use for the engine sidecar.
+ *  Exported for testing — not part of the public API. */
+export function resolvePython(): string {
+  // 1. Explicit env var
+  if (process.env.ALTIMATE_CLI_PYTHON) return process.env.ALTIMATE_CLI_PYTHON
+
+  // 2. Check for .venv relative to altimate-engine package (local dev)
+  const engineDir = path.resolve(__dirname, "..", "..", "..", "altimate-engine")
+  const venvPython = path.join(engineDir, ".venv", "bin", "python")
+  if (existsSync(venvPython)) return venvPython
+
+  // 3. Check for .venv in cwd
+  const cwdVenv = path.join(process.cwd(), ".venv", "bin", "python")
+  if (existsSync(cwdVenv)) return cwdVenv
+
+  // 4. Check the managed engine venv (created by ensureEngine)
+  const managedPython = enginePythonPath()
+  if (existsSync(managedPython)) return managedPython
+
+  // 5. Fallback
+  return "python3"
+}
 
 export namespace Bridge {
   let child: ChildProcess | undefined
@@ -43,24 +67,8 @@ export namespace Bridge {
     })
   }
 
-  function resolvePython(): string {
-    // 1. Explicit env var
-    if (process.env.ALTIMATE_CLI_PYTHON) return process.env.ALTIMATE_CLI_PYTHON
-
-    // 2. Check for .venv relative to altimate-engine package
-    const engineDir = path.resolve(__dirname, "..", "..", "..", "altimate-engine")
-    const venvPython = path.join(engineDir, ".venv", "bin", "python")
-    if (existsSync(venvPython)) return venvPython
-
-    // 3. Check for .venv in cwd
-    const cwdVenv = path.join(process.cwd(), ".venv", "bin", "python")
-    if (existsSync(cwdVenv)) return cwdVenv
-
-    // 4. Fallback
-    return "python3"
-  }
-
   async function start() {
+    await ensureEngine()
     const pythonCmd = resolvePython()
     child = spawn(pythonCmd, ["-m", "altimate_engine.server"], {
       stdio: ["pipe", "pipe", "pipe"],
