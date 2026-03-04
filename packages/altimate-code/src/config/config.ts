@@ -1184,6 +1184,12 @@ export namespace Config {
             .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
         })
         .optional(),
+      telemetry: z
+        .object({
+          disabled: z.boolean().optional().describe("Disable usage telemetry (default: false)"),
+        })
+        .optional()
+        .describe("Telemetry settings"),
       experimental: z
         .object({
           disable_paste_summary: z.boolean().optional(),

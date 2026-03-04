@@ -1,4 +1,5 @@
 import { Control } from "@/control"
+import { Config } from "@/config/config"
 import { Installation } from "@/installation"
 import { Log } from "@/util/log"
 
@@ -108,56 +109,106 @@ export namespace Telemetry {
         tokens_pruned: number
       }
 
-  type Batch = {
-    session_id: string
-    cli_version: string
-    user_email: string
-    project_id: string
-    timestamp: number
-    events: Event[]
+  type AppInsightsConfig = {
+    iKey: string
+    endpoint: string // e.g. https://xxx.applicationinsights.azure.com/v2/track
   }
 
   let enabled = false
-  let authenticated = false
   let buffer: Event[] = []
   let flushTimer: ReturnType<typeof setInterval> | undefined
-  let accountUrl = ""
-  let cachedToken = ""
   let userEmail = ""
   let sessionId = ""
   let projectId = ""
+  let appInsights: AppInsightsConfig | undefined
+
+  function parseConnectionString(cs: string): AppInsightsConfig | undefined {
+    const parts: Record<string, string> = {}
+    for (const segment of cs.split(";")) {
+      const idx = segment.indexOf("=")
+      if (idx === -1) continue
+      parts[segment.slice(0, idx).trim()] = segment.slice(idx + 1).trim()
+    }
+    const iKey = parts["InstrumentationKey"]
+    const ingestionEndpoint = parts["IngestionEndpoint"]
+    if (!iKey || !ingestionEndpoint) return undefined
+    const base = ingestionEndpoint.endsWith("/") ? ingestionEndpoint : ingestionEndpoint + "/"
+    return { iKey, endpoint: `${base}v2/track` }
+  }
+
+  function toAppInsightsEnvelopes(events: Event[], cfg: AppInsightsConfig): object[] {
+    return events.map((event) => {
+      const { type, timestamp, ...fields } = event as any
+      const sid: string = fields.session_id ?? sessionId
+
+      const properties: Record<string, string> = {
+        cli_version: Installation.VERSION,
+        project_id: fields.project_id ?? projectId,
+      }
+      const measurements: Record<string, number> = {}
+
+      // Flatten all fields — nested `tokens` object gets prefixed keys
+      for (const [k, v] of Object.entries(fields)) {
+        if (k === "session_id" || k === "project_id") continue
+        if (k === "tokens" && typeof v === "object" && v !== null) {
+          for (const [tk, tv] of Object.entries(v as Record<string, unknown>)) {
+            if (typeof tv === "number") measurements[`tokens_${tk}`] = tv
+          }
+        } else if (typeof v === "number") {
+          measurements[k] = v
+        } else if (v !== undefined && v !== null) {
+          properties[k] = typeof v === "object" ? JSON.stringify(v) : String(v)
+        }
+      }
+
+      return {
+        name: `Microsoft.ApplicationInsights.${cfg.iKey}.Event`,
+        time: new Date(timestamp).toISOString(),
+        iKey: cfg.iKey,
+        tags: {
+          "ai.session.id": sid,
+          "ai.user.id": userEmail,
+          "ai.cloud.role": "altimate-code",
+          "ai.application.ver": Installation.VERSION,
+        },
+        data: {
+          baseType: "EventData",
+          baseData: {
+            ver: 2,
+            name: type,
+            properties,
+            measurements,
+          },
+        },
+      }
+    })
+  }
+
+  // Instrumentation key is intentionally public — safe to hardcode in client-side tooling.
+  // Override with APPLICATIONINSIGHTS_CONNECTION_STRING env var for local dev / testing.
+  const DEFAULT_CONNECTION_STRING =
+    "InstrumentationKey=5095f5e6-477e-4262-b7ae-2118de18550d;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=6564474f-329b-4b7d-849e-e70cb4181294"
 
   export async function init() {
     if (enabled || flushTimer) return
+    const userConfig = await Config.get()
+    if (userConfig.telemetry?.disabled) return
     try {
+      // App Insights: env var overrides default (for dev/testing), otherwise use the baked-in key
+      const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ?? DEFAULT_CONNECTION_STRING
+      const cfg = parseConnectionString(connectionString)
+      if (!cfg) {
+        enabled = false
+        return
+      }
+      appInsights = cfg
       const account = Control.account()
-      if (account) {
-        const token = await Control.token()
-        if (token) {
-          accountUrl = account.url
-          cachedToken = token
-          userEmail = account.email
-          authenticated = true
-        }
-      }
-
-      // Fall back to env var for anonymous users
-      if (!accountUrl) {
-        const envUrl = process.env.ALTIMATE_TELEMETRY_URL
-        if (!envUrl) {
-          enabled = false
-          return
-        }
-        accountUrl = envUrl
-      }
-
+      if (account) userEmail = account.email
       enabled = true
-
+      log.info("telemetry initialized", { mode: "appinsights" })
       const timer = setInterval(flush, FLUSH_INTERVAL_MS)
       if (typeof timer === "object" && timer && "unref" in timer) (timer as any).unref()
       flushTimer = timer
-
-      log.info("telemetry initialized", { authenticated })
     } catch {
       enabled = false
     }
@@ -181,54 +232,26 @@ export namespace Telemetry {
   }
 
   export async function flush() {
-    if (!enabled || buffer.length === 0) return
+    if (!enabled || buffer.length === 0 || !appInsights) return
 
     const events = buffer.splice(0, buffer.length)
-    const batch: Batch = {
-      session_id: sessionId,
-      cli_version: Installation.VERSION,
-      user_email: userEmail,
-      project_id: projectId,
-      timestamp: Date.now(),
-      events,
-    }
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" }
-      if (authenticated && cachedToken) {
-        headers["Authorization"] = `Bearer ${cachedToken}`
-      }
-
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-
-      const response = await fetch(`${accountUrl}/api/observability/ingest`, {
+      const response = await fetch(appInsights.endpoint, {
         method: "POST",
-        headers,
-        body: JSON.stringify(batch),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(toAppInsightsEnvelopes(events, appInsights)),
         signal: controller.signal,
       })
-      clearTimeout(timeout)
-
-      if (authenticated && response.status === 401) {
-        const newToken = await Control.token()
-        if (!newToken) return
-        cachedToken = newToken
-        const retryController = new AbortController()
-        const retryTimeout = setTimeout(() => retryController.abort(), REQUEST_TIMEOUT_MS)
-        await fetch(`${accountUrl}/api/observability/ingest`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${cachedToken}`,
-          },
-          body: JSON.stringify(batch),
-          signal: retryController.signal,
-        })
-        clearTimeout(retryTimeout)
+      if (!response.ok) {
+        log.debug("telemetry flush failed", { status: response.status })
       }
     } catch {
       // Silently drop on failure — telemetry must never break the CLI
+    } finally {
+      clearTimeout(timeout)
     }
   }
 
@@ -239,7 +262,7 @@ export namespace Telemetry {
     }
     await flush()
     enabled = false
-    authenticated = false
+    appInsights = undefined
     buffer = []
     sessionId = ""
     projectId = ""
