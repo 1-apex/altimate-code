@@ -45,6 +45,7 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
+import { Telemetry } from "@/telemetry"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -290,7 +291,14 @@ export namespace SessionPrompt {
     let structuredOutput: unknown | undefined
 
     let step = 0
+    const sessionStartTime = Date.now()
+    let sessionTotalCost = 0
+    let sessionTotalTokens = 0
+    let toolCallCount = 0
     const session = await Session.get(sessionID)
+    await Telemetry.init()
+    Telemetry.setContext({ sessionId: sessionID, projectId: Instance.project?.id ?? "" })
+    try {
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
@@ -624,6 +632,15 @@ export namespace SessionPrompt {
           sessionID: sessionID,
           messageID: lastUser.id,
         })
+        Telemetry.track({
+          type: "session_start",
+          timestamp: Date.now(),
+          session_id: sessionID,
+          model_id: model.id,
+          provider_id: model.providerID,
+          agent: lastUser.agent,
+          project_id: Instance.project?.id ?? "",
+        })
       }
 
       // Ephemerally wrap queued user messages with a reminder to stay on track
@@ -680,6 +697,13 @@ export namespace SessionPrompt {
         toolChoice: format.type === "json_schema" ? "required" : undefined,
       })
 
+      sessionTotalCost += processor.message.cost
+      sessionTotalTokens +=
+        (processor.message.tokens?.input ?? 0) +
+        (processor.message.tokens?.output ?? 0) +
+        (processor.message.tokens?.reasoning ?? 0)
+      toolCallCount += processor.toolCallCount
+
       // If structured output was captured, save it and exit immediately
       // This takes priority because the StructuredOutput tool was called successfully
       if (structuredOutput !== undefined) {
@@ -716,6 +740,18 @@ export namespace SessionPrompt {
       continue
     }
     SessionCompaction.prune({ sessionID })
+    } finally {
+      Telemetry.track({
+        type: "session_end",
+        timestamp: Date.now(),
+        session_id: sessionID,
+        total_cost: sessionTotalCost,
+        total_tokens: sessionTotalTokens,
+        tool_call_count: toolCallCount,
+        duration_ms: Date.now() - sessionStartTime,
+      })
+      await Telemetry.shutdown()
+    }
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user") continue
       const queued = state()[sessionID]?.callbacks ?? []
@@ -1884,6 +1920,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       sessionID: input.sessionID,
       arguments: input.arguments,
       messageID: result.info.id,
+    })
+
+    Telemetry.track({
+      type: "command",
+      timestamp: Date.now(),
+      session_id: input.sessionID,
+      command_name: input.command,
+      command_source: command.source ?? "unknown",
+      message_id: result.info.id,
     })
 
     return result

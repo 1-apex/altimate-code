@@ -11,6 +11,7 @@ import { existsSync } from "fs"
 import path from "path"
 import { ensureEngine, enginePythonPath } from "./engine"
 import type { BridgeMethod, BridgeMethods } from "./protocol"
+import { Telemetry } from "@/telemetry"
 
 /** Resolve the Python interpreter to use for the engine sidecar.
  *  Exported for testing — not part of the public API. */
@@ -48,6 +49,7 @@ export namespace Bridge {
     method: M,
     params: (typeof BridgeMethods)[M] extends { params: infer P } ? P : never,
   ): Promise<(typeof BridgeMethods)[M] extends { result: infer R } ? R : never> {
+    const startTime = Date.now()
     if (!child || child.exitCode !== null) {
       if (restartCount >= MAX_RESTARTS) throw new Error("Python bridge failed after max restarts")
       await start()
@@ -55,13 +57,47 @@ export namespace Bridge {
     const id = ++requestId
     const request = JSON.stringify({ jsonrpc: "2.0", method, params, id })
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject })
+      pending.set(id, {
+        resolve: (value: any) => {
+          Telemetry.track({
+            type: "bridge_call",
+            timestamp: Date.now(),
+            session_id: Telemetry.getContext().sessionId,
+            method,
+            status: "success",
+            duration_ms: Date.now() - startTime,
+          })
+          resolve(value)
+        },
+        reject: (reason: any) => {
+          Telemetry.track({
+            type: "bridge_call",
+            timestamp: Date.now(),
+            session_id: Telemetry.getContext().sessionId,
+            method,
+            status: "error",
+            duration_ms: Date.now() - startTime,
+            error: String(reason).slice(0, 500),
+          })
+          reject(reason)
+        },
+      })
       child!.stdin!.write(request + "\n")
 
       setTimeout(() => {
         if (pending.has(id)) {
           pending.delete(id)
-          reject(new Error(`Bridge timeout: ${method} (${CALL_TIMEOUT_MS}ms)`))
+          const error = new Error(`Bridge timeout: ${method} (${CALL_TIMEOUT_MS}ms)`)
+          Telemetry.track({
+            type: "bridge_call",
+            timestamp: Date.now(),
+            session_id: Telemetry.getContext().sessionId,
+            method,
+            status: "error",
+            duration_ms: Date.now() - startTime,
+            error: error.message,
+          })
+          reject(error)
         }
       }, CALL_TIMEOUT_MS)
     })

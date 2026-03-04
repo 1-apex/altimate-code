@@ -15,6 +15,7 @@ import { Config } from "@/config/config"
 import { SessionCompaction } from "./compaction"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
+import { Telemetry } from "@/telemetry"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -34,10 +35,15 @@ export namespace SessionProcessor {
     let blocked = false
     let attempt = 0
     let needsCompaction = false
+    let stepStartTime = Date.now()
+    let toolCallCounter = 0
 
     const result = {
       get message() {
         return input.assistantMessage
+      },
+      get toolCallCount() {
+        return toolCallCounter
       },
       partFromToolCall(toolCallID: string) {
         return toolcalls[toolCallID]
@@ -195,7 +201,17 @@ export namespace SessionProcessor {
                         attachments: value.output.attachments,
                       },
                     })
-
+                    toolCallCounter++
+                    Telemetry.track({
+                      type: "tool_call",
+                      timestamp: Date.now(),
+                      session_id: input.sessionID,
+                      message_id: input.assistantMessage.id,
+                      tool_name: match.tool,
+                      tool_type: match.tool.startsWith("mcp__") ? "mcp" : "standard",
+                      status: "success",
+                      duration_ms: Date.now() - match.state.time.start,
+                    })
                     delete toolcalls[value.toolCallId]
                   }
                   break
@@ -216,7 +232,18 @@ export namespace SessionProcessor {
                         },
                       },
                     })
-
+                    toolCallCounter++
+                    Telemetry.track({
+                      type: "tool_call",
+                      timestamp: Date.now(),
+                      session_id: input.sessionID,
+                      message_id: input.assistantMessage.id,
+                      tool_name: match.tool,
+                      tool_type: match.tool.startsWith("mcp__") ? "mcp" : "standard",
+                      status: "error",
+                      duration_ms: Date.now() - match.state.time.start,
+                      error: (value.error as any).toString().slice(0, 500),
+                    })
                     if (
                       value.error instanceof PermissionNext.RejectedError ||
                       value.error instanceof Question.RejectedError
@@ -231,6 +258,7 @@ export namespace SessionProcessor {
                   throw value.error
 
                 case "start-step":
+                  stepStartTime = Date.now()
                   snapshot = await Snapshot.track()
                   await Session.updatePart({
                     id: Identifier.ascending("part"),
@@ -261,6 +289,25 @@ export namespace SessionProcessor {
                     cost: usage.cost,
                   })
                   await Session.updateMessage(input.assistantMessage)
+                  Telemetry.track({
+                    type: "generation",
+                    timestamp: Date.now(),
+                    session_id: input.sessionID,
+                    message_id: input.assistantMessage.id,
+                    model_id: input.model.id,
+                    provider_id: input.model.providerID,
+                    agent: input.assistantMessage.agent ?? "",
+                    finish_reason: value.finishReason,
+                    tokens: {
+                      input: usage.tokens.input,
+                      output: usage.tokens.output,
+                      reasoning: usage.tokens.reasoning,
+                      cache_read: usage.tokens.cache.read,
+                      cache_write: usage.tokens.cache.write,
+                    },
+                    cost: usage.cost,
+                    duration_ms: Date.now() - stepStartTime,
+                  })
                   if (snapshot) {
                     const patch = await Snapshot.patch(snapshot)
                     if (patch.files.length) {
@@ -351,6 +398,14 @@ export namespace SessionProcessor {
             log.error("process", {
               error: e,
               stack: JSON.stringify(e.stack),
+            })
+            Telemetry.track({
+              type: "error",
+              timestamp: Date.now(),
+              session_id: input.sessionID,
+              error_name: e?.name ?? "UnknownError",
+              error_message: (e?.message ?? String(e)).slice(0, 1000),
+              context: "processor",
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
