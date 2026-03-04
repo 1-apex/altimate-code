@@ -374,7 +374,7 @@ export namespace SessionProcessor {
                     )
                     currentText.text = textOutput.text
                     currentText.time = {
-                      start: Date.now(),
+                      ...currentText.time,
                       end: Date.now(),
                     }
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
@@ -409,7 +409,20 @@ export namespace SessionProcessor {
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
-              // TODO: Handle context overflow error
+              log.info("context overflow detected, triggering compaction")
+              needsCompaction = true
+              const tokens = input.assistantMessage.tokens
+              Telemetry.track({
+                type: "context_overflow_recovered",
+                timestamp: Date.now(),
+                session_id: input.sessionID,
+                model_id: input.model.id,
+                provider_id: input.model.providerID,
+                tokens_used:
+                  tokens.total ||
+                  tokens.input + tokens.output + tokens.cache.read + tokens.cache.write,
+              })
+              break
             }
             const retry = SessionRetry.retryable(error)
             if (retry !== undefined) {
