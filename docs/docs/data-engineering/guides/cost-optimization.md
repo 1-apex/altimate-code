@@ -87,44 +87,6 @@ This finds:
 - Warehouses with no queries in 7+ days
 - Temporary tables from old migrations
 
-## Step 5: Predict before you execute
-
-Every query goes through cost prediction before execution:
-
-```
-You: How much will this query cost?
-
-> sql_predict_cost "SELECT * FROM raw_clickstream"
-
-  Tier 3 estimate: ~45 credits
-  Table size: 890GB, 12B rows
-  Recommendation: Add date filter + column pruning → estimated 2-3 credits
-```
-
-## Step 6: Build a cost feedback loop
-
-After each query, `sql_record_feedback` stores actual execution metrics. This trains the cost prediction model to be more accurate over time.
-
-```
-Query executed: 0.84 credits (predicted: 0.79, Tier 2)
-Feedback recorded → next prediction will be more accurate
-```
-
-## Automation: CI cost gate
-
-Use `ci_cost_gate` in your CI/CD pipeline to block expensive queries from reaching production:
-
-```
-> ci_cost_gate --threshold 10 models/marts/fct_revenue.sql
-
-Cost Gate Results:
-  fct_revenue.sql: 2.3 credits (PASS — under 10 credit threshold)
-  fct_orders.sql: 0.8 credits (PASS)
-  fct_daily_snapshot.sql: 45.1 credits (FAIL — exceeds threshold)
-
-1 model blocked. Fix fct_daily_snapshot.sql before deploying.
-```
-
 ## Quick wins checklist
 
 | Action | Typical savings | Effort |

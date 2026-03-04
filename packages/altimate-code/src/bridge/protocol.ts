@@ -330,37 +330,6 @@ export interface SchemaCacheStatusResult {
   cache_path: string
 }
 
-// --- SQL Feedback & Cost Prediction ---
-
-export interface SqlRecordFeedbackParams {
-  sql: string
-  dialect?: string
-  bytes_scanned?: number
-  rows_produced?: number
-  execution_time_ms?: number
-  credits_used?: number
-  warehouse_size?: string
-}
-
-export interface SqlRecordFeedbackResult {
-  recorded: boolean
-}
-
-export interface SqlPredictCostParams {
-  sql: string
-  dialect?: string
-}
-
-export interface SqlPredictCostResult {
-  tier: number
-  confidence: string
-  predicted_bytes?: number
-  predicted_time_ms?: number
-  predicted_credits?: number
-  method: string
-  observation_count: number
-}
-
 // --- SQL Explain ---
 
 export interface SqlExplainParams {
@@ -669,32 +638,6 @@ export interface SqlRewriteResult {
   error?: string
 }
 
-// --- CI Cost Gate ---
-
-export interface CostGateFileResult {
-  file: string
-  status: string // "pass", "fail", "skipped"
-  reason?: string
-  issues: Record<string, unknown>[]
-}
-
-export interface CostGateParams {
-  file_paths: string[]
-  dialect?: string
-}
-
-export interface CostGateResult {
-  success: boolean
-  passed: boolean
-  exit_code: number
-  files_scanned: number
-  files_skipped: number
-  total_issues: number
-  critical_count: number
-  file_results: CostGateFileResult[]
-  error?: string
-}
-
 // --- Schema Change Detection ---
 
 export interface ColumnChange {
@@ -722,227 +665,214 @@ export interface SchemaDiffResult {
   error?: string
 }
 
-// --- sqlguard ---
+// --- altimate-core ---
 
-export interface SqlGuardValidateParams {
+export interface AltimateCoreValidateParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardLintParams {
+export interface AltimateCoreLintParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardSafetyParams {
+export interface AltimateCoreSafetyParams {
   sql: string
 }
 
-export interface SqlGuardTranspileParams {
+export interface AltimateCoreTranspileParams {
   sql: string
   from_dialect: string
   to_dialect: string
 }
 
-export interface SqlGuardExplainParams {
+export interface AltimateCoreExplainParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardCheckParams {
+export interface AltimateCoreCheckParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardResult {
+export interface AltimateCoreResult {
   success: boolean
   data: Record<string, unknown>
   error?: string
 }
 
-// --- sqlguard Phase 1 (P0) ---
+// --- altimate-core Phase 1 (P0) ---
 
-export interface SqlGuardFixParams {
+export interface AltimateCoreFixParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
   max_iterations?: number
 }
 
-export interface SqlGuardPolicyParams {
+export interface AltimateCorePolicyParams {
   sql: string
   policy_json: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardComplexityParams {
+export interface AltimateCoreSemanticsParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardSemanticsParams {
+export interface AltimateCoreTestgenParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardTestgenParams {
-  sql: string
-  schema_path?: string
-  schema_context?: Record<string, any>
-}
+// --- altimate-core Phase 2 (P1) ---
 
-// --- sqlguard Phase 2 (P1) ---
-
-export interface SqlGuardEquivalenceParams {
+export interface AltimateCoreEquivalenceParams {
   sql1: string
   sql2: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardMigrationParams {
+export interface AltimateCoreMigrationParams {
   old_ddl: string
   new_ddl: string
   dialect?: string
 }
 
-export interface SqlGuardSchemaDiffParams {
+export interface AltimateCoreSchemaDiffParams {
   schema1_path?: string
   schema2_path?: string
   schema1_context?: Record<string, any>
   schema2_context?: Record<string, any>
 }
 
-export interface SqlGuardRewriteParams {
+export interface AltimateCoreRewriteParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardCorrectParams {
+export interface AltimateCoreCorrectParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardGradeParams {
+export interface AltimateCoreGradeParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardCostParams {
-  sql: string
-  schema_path?: string
-  schema_context?: Record<string, any>
-  dialect?: string
-}
+// --- altimate-core Phase 3 (P2) ---
 
-// --- sqlguard Phase 3 (P2) ---
-
-export interface SqlGuardClassifyPiiParams {
+export interface AltimateCoreClassifyPiiParams {
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardQueryPiiParams {
+export interface AltimateCoreQueryPiiParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardResolveTermParams {
+export interface AltimateCoreResolveTermParams {
   term: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardColumnLineageParams {
+export interface AltimateCoreColumnLineageParams {
   sql: string
   dialect?: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardTrackLineageParams {
+export interface AltimateCoreTrackLineageParams {
   queries: string[]
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardFormatSqlParams {
+export interface AltimateCoreFormatSqlParams {
   sql: string
   dialect?: string
 }
 
-export interface SqlGuardExtractMetadataParams {
+export interface AltimateCoreExtractMetadataParams {
   sql: string
   dialect?: string
 }
 
-export interface SqlGuardCompareQueriesParams {
+export interface AltimateCoreCompareQueriesParams {
   left_sql: string
   right_sql: string
   dialect?: string
 }
 
-export interface SqlGuardCompleteToolParams {
+export interface AltimateCoreCompleteToolParams {
   sql: string
   cursor_pos: number
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardOptimizeContextParams {
+export interface AltimateCoreOptimizeContextParams {
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardOptimizeForQueryParams {
+export interface AltimateCoreOptimizeForQueryParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardPruneSchemaParams {
+export interface AltimateCorePruneSchemaParams {
   sql: string
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardImportDdlParams {
+export interface AltimateCoreImportDdlParams {
   ddl: string
   dialect?: string
 }
 
-export interface SqlGuardExportDdlParams {
+export interface AltimateCoreExportDdlParams {
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardFingerprintParams {
+export interface AltimateCoreFingerprintParams {
   schema_path?: string
   schema_context?: Record<string, any>
 }
 
-export interface SqlGuardIntrospectionSqlParams {
+export interface AltimateCoreIntrospectionSqlParams {
   db_type: string
   database: string
   schema_name?: string
 }
 
-export interface SqlGuardParseDbtParams {
+export interface AltimateCoreParseDbtParams {
   project_dir: string
 }
 
-export interface SqlGuardIsSafeParams {
+export interface AltimateCoreIsSafeParams {
   sql: string
 }
 
@@ -1028,8 +958,6 @@ export const BridgeMethods = {
   "sql.analyze": {} as { params: SqlAnalyzeParams; result: SqlAnalyzeResult },
   "sql.optimize": {} as { params: SqlOptimizeParams; result: SqlOptimizeResult },
   "sql.translate": {} as { params: SqlTranslateParams; result: SqlTranslateResult },
-  "sql.record_feedback": {} as { params: SqlRecordFeedbackParams; result: SqlRecordFeedbackResult },
-  "sql.predict_cost": {} as { params: SqlPredictCostParams; result: SqlPredictCostResult },
   "sql.explain": {} as { params: SqlExplainParams; result: SqlExplainResult },
   "sql.format": {} as { params: SqlFormatParams; result: SqlFormatResult },
   "sql.fix": {} as { params: SqlFixParams; result: SqlFixResult },
@@ -1060,53 +988,50 @@ export const BridgeMethods = {
   "schema.tags_list": {} as { params: TagsListParams; result: TagsListResult },
   "sql.diff": {} as { params: SqlDiffParams; result: SqlDiffResult },
   "sql.rewrite": {} as { params: SqlRewriteParams; result: SqlRewriteResult },
-  "ci.cost_gate": {} as { params: CostGateParams; result: CostGateResult },
   "sql.schema_diff": {} as { params: SchemaDiffParams; result: SchemaDiffResult },
   // --- dbt discovery ---
   "dbt.profiles": {} as { params: DbtProfilesParams; result: DbtProfilesResult },
   // --- local testing ---
   "local.schema_sync": {} as { params: LocalSchemaSyncParams; result: LocalSchemaSyncResult },
   "local.test": {} as { params: LocalTestParams; result: LocalTestResult },
-  // --- sqlguard (existing) ---
-  "sqlguard.validate": {} as { params: SqlGuardValidateParams; result: SqlGuardResult },
-  "sqlguard.lint": {} as { params: SqlGuardLintParams; result: SqlGuardResult },
-  "sqlguard.safety": {} as { params: SqlGuardSafetyParams; result: SqlGuardResult },
-  "sqlguard.transpile": {} as { params: SqlGuardTranspileParams; result: SqlGuardResult },
-  "sqlguard.explain": {} as { params: SqlGuardExplainParams; result: SqlGuardResult },
-  "sqlguard.check": {} as { params: SqlGuardCheckParams; result: SqlGuardResult },
-  // --- sqlguard Phase 1 (P0) ---
-  "sqlguard.fix": {} as { params: SqlGuardFixParams; result: SqlGuardResult },
-  "sqlguard.policy": {} as { params: SqlGuardPolicyParams; result: SqlGuardResult },
-  "sqlguard.complexity": {} as { params: SqlGuardComplexityParams; result: SqlGuardResult },
-  "sqlguard.semantics": {} as { params: SqlGuardSemanticsParams; result: SqlGuardResult },
-  "sqlguard.testgen": {} as { params: SqlGuardTestgenParams; result: SqlGuardResult },
-  // --- sqlguard Phase 2 (P1) ---
-  "sqlguard.equivalence": {} as { params: SqlGuardEquivalenceParams; result: SqlGuardResult },
-  "sqlguard.migration": {} as { params: SqlGuardMigrationParams; result: SqlGuardResult },
-  "sqlguard.schema_diff": {} as { params: SqlGuardSchemaDiffParams; result: SqlGuardResult },
-  "sqlguard.rewrite": {} as { params: SqlGuardRewriteParams; result: SqlGuardResult },
-  "sqlguard.correct": {} as { params: SqlGuardCorrectParams; result: SqlGuardResult },
-  "sqlguard.grade": {} as { params: SqlGuardGradeParams; result: SqlGuardResult },
-  "sqlguard.cost": {} as { params: SqlGuardCostParams; result: SqlGuardResult },
-  // --- sqlguard Phase 3 (P2) ---
-  "sqlguard.classify_pii": {} as { params: SqlGuardClassifyPiiParams; result: SqlGuardResult },
-  "sqlguard.query_pii": {} as { params: SqlGuardQueryPiiParams; result: SqlGuardResult },
-  "sqlguard.resolve_term": {} as { params: SqlGuardResolveTermParams; result: SqlGuardResult },
-  "sqlguard.column_lineage": {} as { params: SqlGuardColumnLineageParams; result: SqlGuardResult },
-  "sqlguard.track_lineage": {} as { params: SqlGuardTrackLineageParams; result: SqlGuardResult },
-  "sqlguard.format": {} as { params: SqlGuardFormatSqlParams; result: SqlGuardResult },
-  "sqlguard.metadata": {} as { params: SqlGuardExtractMetadataParams; result: SqlGuardResult },
-  "sqlguard.compare": {} as { params: SqlGuardCompareQueriesParams; result: SqlGuardResult },
-  "sqlguard.complete": {} as { params: SqlGuardCompleteToolParams; result: SqlGuardResult },
-  "sqlguard.optimize_context": {} as { params: SqlGuardOptimizeContextParams; result: SqlGuardResult },
-  "sqlguard.optimize_for_query": {} as { params: SqlGuardOptimizeForQueryParams; result: SqlGuardResult },
-  "sqlguard.prune_schema": {} as { params: SqlGuardPruneSchemaParams; result: SqlGuardResult },
-  "sqlguard.import_ddl": {} as { params: SqlGuardImportDdlParams; result: SqlGuardResult },
-  "sqlguard.export_ddl": {} as { params: SqlGuardExportDdlParams; result: SqlGuardResult },
-  "sqlguard.fingerprint": {} as { params: SqlGuardFingerprintParams; result: SqlGuardResult },
-  "sqlguard.introspection_sql": {} as { params: SqlGuardIntrospectionSqlParams; result: SqlGuardResult },
-  "sqlguard.parse_dbt": {} as { params: SqlGuardParseDbtParams; result: SqlGuardResult },
-  "sqlguard.is_safe": {} as { params: SqlGuardIsSafeParams; result: SqlGuardResult },
+  // --- altimate-core (existing) ---
+  "altimate_core.validate": {} as { params: AltimateCoreValidateParams; result: AltimateCoreResult },
+  "altimate_core.lint": {} as { params: AltimateCoreLintParams; result: AltimateCoreResult },
+  "altimate_core.safety": {} as { params: AltimateCoreSafetyParams; result: AltimateCoreResult },
+  "altimate_core.transpile": {} as { params: AltimateCoreTranspileParams; result: AltimateCoreResult },
+  "altimate_core.explain": {} as { params: AltimateCoreExplainParams; result: AltimateCoreResult },
+  "altimate_core.check": {} as { params: AltimateCoreCheckParams; result: AltimateCoreResult },
+  // --- altimate-core Phase 1 (P0) ---
+  "altimate_core.fix": {} as { params: AltimateCoreFixParams; result: AltimateCoreResult },
+  "altimate_core.policy": {} as { params: AltimateCorePolicyParams; result: AltimateCoreResult },
+  "altimate_core.semantics": {} as { params: AltimateCoreSemanticsParams; result: AltimateCoreResult },
+  "altimate_core.testgen": {} as { params: AltimateCoreTestgenParams; result: AltimateCoreResult },
+  // --- altimate-core Phase 2 (P1) ---
+  "altimate_core.equivalence": {} as { params: AltimateCoreEquivalenceParams; result: AltimateCoreResult },
+  "altimate_core.migration": {} as { params: AltimateCoreMigrationParams; result: AltimateCoreResult },
+  "altimate_core.schema_diff": {} as { params: AltimateCoreSchemaDiffParams; result: AltimateCoreResult },
+  "altimate_core.rewrite": {} as { params: AltimateCoreRewriteParams; result: AltimateCoreResult },
+  "altimate_core.correct": {} as { params: AltimateCoreCorrectParams; result: AltimateCoreResult },
+  "altimate_core.grade": {} as { params: AltimateCoreGradeParams; result: AltimateCoreResult },
+  // --- altimate-core Phase 3 (P2) ---
+  "altimate_core.classify_pii": {} as { params: AltimateCoreClassifyPiiParams; result: AltimateCoreResult },
+  "altimate_core.query_pii": {} as { params: AltimateCoreQueryPiiParams; result: AltimateCoreResult },
+  "altimate_core.resolve_term": {} as { params: AltimateCoreResolveTermParams; result: AltimateCoreResult },
+  "altimate_core.column_lineage": {} as { params: AltimateCoreColumnLineageParams; result: AltimateCoreResult },
+  "altimate_core.track_lineage": {} as { params: AltimateCoreTrackLineageParams; result: AltimateCoreResult },
+  "altimate_core.format": {} as { params: AltimateCoreFormatSqlParams; result: AltimateCoreResult },
+  "altimate_core.metadata": {} as { params: AltimateCoreExtractMetadataParams; result: AltimateCoreResult },
+  "altimate_core.compare": {} as { params: AltimateCoreCompareQueriesParams; result: AltimateCoreResult },
+  "altimate_core.complete": {} as { params: AltimateCoreCompleteToolParams; result: AltimateCoreResult },
+  "altimate_core.optimize_context": {} as { params: AltimateCoreOptimizeContextParams; result: AltimateCoreResult },
+  "altimate_core.optimize_for_query": {} as { params: AltimateCoreOptimizeForQueryParams; result: AltimateCoreResult },
+  "altimate_core.prune_schema": {} as { params: AltimateCorePruneSchemaParams; result: AltimateCoreResult },
+  "altimate_core.import_ddl": {} as { params: AltimateCoreImportDdlParams; result: AltimateCoreResult },
+  "altimate_core.export_ddl": {} as { params: AltimateCoreExportDdlParams; result: AltimateCoreResult },
+  "altimate_core.fingerprint": {} as { params: AltimateCoreFingerprintParams; result: AltimateCoreResult },
+  "altimate_core.introspection_sql": {} as { params: AltimateCoreIntrospectionSqlParams; result: AltimateCoreResult },
+  "altimate_core.parse_dbt": {} as { params: AltimateCoreParseDbtParams; result: AltimateCoreResult },
+  "altimate_core.is_safe": {} as { params: AltimateCoreIsSafeParams; result: AltimateCoreResult },
   ping: {} as { params: Record<string, never>; result: { status: string } },
 } as const
 

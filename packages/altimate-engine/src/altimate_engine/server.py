@@ -60,10 +60,6 @@ from altimate_engine.models import (
     SqlOptimizeParams,
     SqlOptimizeResult,
     SqlOptimizeSuggestion,
-    SqlPredictCostParams,
-    SqlPredictCostResult,
-    SqlRecordFeedbackParams,
-    SqlRecordFeedbackResult,
     SqlRewriteParams,
     SqlRewriteResult,
     SqlRewriteRule,
@@ -98,13 +94,13 @@ from altimate_engine.models import (
     TagsListResult,
     SqlDiffParams,
     SqlDiffResult,
-    SqlGuardValidateParams,
-    SqlGuardLintParams,
-    SqlGuardSafetyParams,
-    SqlGuardTranspileParams,
-    SqlGuardExplainParams,
-    SqlGuardCheckParams,
-    SqlGuardResult,
+    AltimateCoreValidateParams,
+    AltimateCoreLintParams,
+    AltimateCoreSafetyParams,
+    AltimateCoreTranspileParams,
+    AltimateCoreExplainParams,
+    AltimateCoreCheckParams,
+    AltimateCoreResult,
 )
 from altimate_engine.sql.executor import execute_sql
 from altimate_engine.sql.explainer import explain_sql
@@ -119,7 +115,6 @@ from altimate_engine.dbt.lineage import dbt_lineage
 from altimate_engine.connections import ConnectionRegistry
 
 # lineage.check delegates to guard_column_lineage
-from altimate_engine.sql.feedback_store import FeedbackStore
 from altimate_engine.schema.cache import SchemaCache
 from altimate_engine.finops.query_history import get_query_history
 from altimate_engine.finops.credit_analyzer import (
@@ -143,7 +138,6 @@ from altimate_engine.sql.guard import (
     # Phase 1 (P0)
     guard_fix as guard_fix_sql,
     guard_check_policy,
-    guard_complexity_score,
     guard_check_semantics,
     guard_generate_tests,
     # Phase 2 (P1)
@@ -153,7 +147,6 @@ from altimate_engine.sql.guard import (
     guard_rewrite as guard_rewrite_sql,
     guard_correct,
     guard_evaluate,
-    guard_estimate_cost,
     # Phase 3 (P2)
     guard_classify_pii,
     guard_check_query_pii,
@@ -178,38 +171,36 @@ from altimate_engine.dbt.profiles import discover_dbt_connections
 from altimate_engine.local.schema_sync import sync_schema
 from altimate_engine.local.test_local import test_sql_local
 from altimate_engine.models import (
-    SqlGuardFixParams,
-    SqlGuardPolicyParams,
-    SqlGuardComplexityParams,
-    SqlGuardSemanticsParams,
-    SqlGuardTestgenParams,
+    AltimateCoreFixParams,
+    AltimateCorePolicyParams,
+    AltimateCoreSemanticsParams,
+    AltimateCoreTestgenParams,
     # Phase 2 (P1)
-    SqlGuardEquivalenceParams,
-    SqlGuardMigrationParams,
-    SqlGuardSchemaDiffParams,
-    SqlGuardGuardRewriteParams,
-    SqlGuardCorrectParams,
-    SqlGuardGradeParams,
-    SqlGuardCostParams,
+    AltimateCoreEquivalenceParams,
+    AltimateCoreMigrationParams,
+    AltimateCoreSchemaDiffParams,
+    AltimateCoreGuardRewriteParams,
+    AltimateCoreCorrectParams,
+    AltimateCoreGradeParams,
     # Phase 3 (P2)
-    SqlGuardClassifyPiiParams,
-    SqlGuardQueryPiiParams,
-    SqlGuardResolveTermParams,
-    SqlGuardColumnLineageParams,
-    SqlGuardTrackLineageParams,
-    SqlGuardFormatSqlParams,
-    SqlGuardExtractMetadataParams,
-    SqlGuardCompareQueriesParams,
-    SqlGuardCompleteParams,
-    SqlGuardOptimizeContextParams,
-    SqlGuardOptimizeForQueryParams,
-    SqlGuardPruneSchemaParams,
-    SqlGuardImportDdlParams,
-    SqlGuardExportDdlParams,
-    SqlGuardSchemaFingerprintParams,
-    SqlGuardIntrospectionSqlParams,
-    SqlGuardParseDbtProjectParams,
-    SqlGuardIsSafeParams,
+    AltimateCoreClassifyPiiParams,
+    AltimateCoreQueryPiiParams,
+    AltimateCoreResolveTermParams,
+    AltimateCoreColumnLineageParams,
+    AltimateCoreTrackLineageParams,
+    AltimateCoreFormatSqlParams,
+    AltimateCoreExtractMetadataParams,
+    AltimateCoreCompareQueriesParams,
+    AltimateCoreCompleteParams,
+    AltimateCoreOptimizeContextParams,
+    AltimateCoreOptimizeForQueryParams,
+    AltimateCorePruneSchemaParams,
+    AltimateCoreImportDdlParams,
+    AltimateCoreExportDdlParams,
+    AltimateCoreSchemaFingerprintParams,
+    AltimateCoreIntrospectionSqlParams,
+    AltimateCoreParseDbtProjectParams,
+    AltimateCoreIsSafeParams,
 )
 
 
@@ -246,16 +237,7 @@ def _schema_context_to_dict(
     return {"tables": tables, "version": "1"}
 
 
-_feedback_store: FeedbackStore | None = None
 _schema_cache: SchemaCache | None = None
-
-
-def _get_feedback_store() -> FeedbackStore:
-    """Return the singleton FeedbackStore, creating it on first use."""
-    global _feedback_store
-    if _feedback_store is None:
-        _feedback_store = FeedbackStore()
-    return _feedback_store
 
 
 def _get_schema_cache() -> SchemaCache:
@@ -460,7 +442,7 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
                 else None,
             )
             _err = raw.get("error")
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=_err is None,
                 data=raw if _err is None else None,
                 error=_err,
@@ -508,33 +490,6 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
             except Exception as e:
                 result = WarehouseDiscoverResult(error=str(e))
 
-        elif method == "sql.record_feedback":
-            fb_params = SqlRecordFeedbackParams(**params)
-            store = _get_feedback_store()
-            store.record(
-                sql=fb_params.sql,
-                dialect=fb_params.dialect,
-                bytes_scanned=fb_params.bytes_scanned,
-                rows_produced=fb_params.rows_produced,
-                execution_time_ms=fb_params.execution_time_ms,
-                credits_used=fb_params.credits_used,
-                warehouse_size=fb_params.warehouse_size,
-            )
-            result = SqlRecordFeedbackResult(recorded=True)
-        elif method == "sql.predict_cost":
-            pc_params = SqlPredictCostParams(**params)
-            store = _get_feedback_store()
-            prediction = store.predict(sql=pc_params.sql, dialect=pc_params.dialect)
-            # Merge sqlguard cost estimate if feedback store has no data
-            if prediction.get("method") == "no_data":
-                guard_cost = guard_estimate_cost(
-                    pc_params.sql, dialect=pc_params.dialect
-                )
-                if guard_cost.get("bytes_scanned") or guard_cost.get("estimated_usd"):
-                    prediction["predicted_bytes"] = guard_cost.get("bytes_scanned")
-                    prediction["predicted_credits"] = guard_cost.get("estimated_usd")
-                    prediction["method"] = "sqlguard_estimate"
-            result = SqlPredictCostResult(**prediction)
         elif method == "sql.format":
             fmt_params = SqlFormatParams(**params)
             raw = guard_format_sql(fmt_params.sql, fmt_params.dialect)
@@ -559,8 +514,8 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
                     error_message=fix_params.error_message,
                     suggestions=[
                         SqlFixSuggestion(
-                            type="SQLGUARD_FIX",
-                            message="Auto-fixed by sqlguard engine",
+                            type="ALTIMATE_CORE_FIX",
+                            message="Auto-fixed by altimate_core engine",
                             confidence="high",
                             fixed_sql=fixed_sql,
                         )
@@ -748,7 +703,7 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
         elif method == "sql.diff":
             p = SqlDiffParams(**params)
             raw = diff_sql(p.original, p.modified, p.context_lines)
-            # Add semantic equivalence check via sqlguard
+            # Add semantic equivalence check via altimate_core
             equiv = guard_check_equivalence(p.original, p.modified)
             if equiv.get("equivalent") is not None:
                 raw["semantic_equivalent"] = equiv["equivalent"]
@@ -762,10 +717,10 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
                 for r in guard_rw.get("rewrites", []):
                     rewrites.append(
                         SqlRewriteRule(
-                            rule=r.get("rule", "SQLGUARD_REWRITE"),
+                            rule=r.get("rule", "ALTIMATE_CORE_REWRITE"),
                             original_fragment=r.get("original_fragment", ""),
                             rewritten_fragment=r.get("rewritten_fragment", ""),
-                            explanation=r.get("explanation", "Rewritten by sqlguard"),
+                            explanation=r.get("explanation", "Rewritten by altimate_core"),
                             can_auto_apply=True,
                         )
                     )
@@ -783,193 +738,185 @@ def dispatch(request: JsonRpcRequest) -> JsonRpcResponse:
                     rewrites_applied=[],
                     error=guard_rw.get("error", "No rewrites applicable"),
                 )
-        # --- sqlguard ---
-        elif method == "sqlguard.validate":
-            p = SqlGuardValidateParams(**params)
+        # --- altimate_core ---
+        elif method == "altimate_core.validate":
+            p = AltimateCoreValidateParams(**params)
             raw = guard_validate(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("valid", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.lint":
-            p = SqlGuardLintParams(**params)
+        elif method == "altimate_core.lint":
+            p = AltimateCoreLintParams(**params)
             raw = guard_lint(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("clean", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.safety":
-            p = SqlGuardSafetyParams(**params)
+        elif method == "altimate_core.safety":
+            p = AltimateCoreSafetyParams(**params)
             raw = guard_scan_safety(p.sql)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("safe", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.transpile":
-            p = SqlGuardTranspileParams(**params)
+        elif method == "altimate_core.transpile":
+            p = AltimateCoreTranspileParams(**params)
             raw = guard_transpile(p.sql, p.from_dialect, p.to_dialect)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.explain":
-            p = SqlGuardExplainParams(**params)
+        elif method == "altimate_core.explain":
+            p = AltimateCoreExplainParams(**params)
             raw = guard_explain(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("valid", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.check":
-            p = SqlGuardCheckParams(**params)
+        elif method == "altimate_core.check":
+            p = AltimateCoreCheckParams(**params)
             raw = guard_check(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        # --- sqlguard Phase 1 (P0) ---
-        elif method == "sqlguard.fix":
-            p = SqlGuardFixParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        # --- altimate_core Phase 1 (P0) ---
+        elif method == "altimate_core.fix":
+            p = AltimateCoreFixParams(**params)
             raw = guard_fix_sql(
                 p.sql, p.schema_path, p.schema_context, p.max_iterations
             )
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.policy":
-            p = SqlGuardPolicyParams(**params)
+        elif method == "altimate_core.policy":
+            p = AltimateCorePolicyParams(**params)
             raw = guard_check_policy(
                 p.sql, p.policy_json, p.schema_path, p.schema_context
             )
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("pass", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.complexity":
-            p = SqlGuardComplexityParams(**params)
-            raw = guard_complexity_score(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.semantics":
-            p = SqlGuardSemanticsParams(**params)
+        elif method == "altimate_core.semantics":
+            p = AltimateCoreSemanticsParams(**params)
             raw = guard_check_semantics(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("valid", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.testgen":
-            p = SqlGuardTestgenParams(**params)
+        elif method == "altimate_core.testgen":
+            p = AltimateCoreTestgenParams(**params)
             raw = guard_generate_tests(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        # --- sqlguard Phase 2 (P1) ---
-        elif method == "sqlguard.equivalence":
-            p = SqlGuardEquivalenceParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        # --- altimate_core Phase 2 (P1) ---
+        elif method == "altimate_core.equivalence":
+            p = AltimateCoreEquivalenceParams(**params)
             raw = guard_check_equivalence(
                 p.sql1, p.sql2, p.schema_path, p.schema_context
             )
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.migration":
-            p = SqlGuardMigrationParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.migration":
+            p = AltimateCoreMigrationParams(**params)
             raw = guard_analyze_migration(p.old_ddl, p.new_ddl, p.dialect)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.schema_diff":
-            p = SqlGuardSchemaDiffParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.schema_diff":
+            p = AltimateCoreSchemaDiffParams(**params)
             raw = guard_diff_schemas(
                 p.schema1_path,
                 p.schema2_path,
                 p.schema1_context,
                 p.schema2_context,
             )
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.rewrite":
-            p = SqlGuardGuardRewriteParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.rewrite":
+            p = AltimateCoreGuardRewriteParams(**params)
             raw = guard_rewrite_sql(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.correct":
-            p = SqlGuardCorrectParams(**params)
+        elif method == "altimate_core.correct":
+            p = AltimateCoreCorrectParams(**params)
             raw = guard_correct(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.grade":
-            p = SqlGuardGradeParams(**params)
+        elif method == "altimate_core.grade":
+            p = AltimateCoreGradeParams(**params)
             raw = guard_evaluate(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.cost":
-            p = SqlGuardCostParams(**params)
-            raw = guard_estimate_cost(p.sql, p.schema_path, p.schema_context, p.dialect)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        # --- sqlguard Phase 3 (P2) ---
-        elif method == "sqlguard.classify_pii":
-            p = SqlGuardClassifyPiiParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        # --- altimate_core Phase 3 (P2) ---
+        elif method == "altimate_core.classify_pii":
+            p = AltimateCoreClassifyPiiParams(**params)
             raw = guard_classify_pii(p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.query_pii":
-            p = SqlGuardQueryPiiParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.query_pii":
+            p = AltimateCoreQueryPiiParams(**params)
             raw = guard_check_query_pii(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.resolve_term":
-            p = SqlGuardResolveTermParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.resolve_term":
+            p = AltimateCoreResolveTermParams(**params)
             raw = guard_resolve_term(p.term, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.column_lineage":
-            p = SqlGuardColumnLineageParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.column_lineage":
+            p = AltimateCoreColumnLineageParams(**params)
             raw = guard_column_lineage(
                 p.sql, p.dialect, p.schema_path, p.schema_context
             )
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.track_lineage":
-            p = SqlGuardTrackLineageParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.track_lineage":
+            p = AltimateCoreTrackLineageParams(**params)
             raw = guard_track_lineage(p.queries, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.format":
-            p = SqlGuardFormatSqlParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.format":
+            p = AltimateCoreFormatSqlParams(**params)
             raw = guard_format_sql(p.sql, p.dialect)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.metadata":
-            p = SqlGuardExtractMetadataParams(**params)
+        elif method == "altimate_core.metadata":
+            p = AltimateCoreExtractMetadataParams(**params)
             raw = guard_extract_metadata(p.sql, p.dialect)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.compare":
-            p = SqlGuardCompareQueriesParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.compare":
+            p = AltimateCoreCompareQueriesParams(**params)
             raw = guard_compare_queries(p.left_sql, p.right_sql, p.dialect)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.complete":
-            p = SqlGuardCompleteParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.complete":
+            p = AltimateCoreCompleteParams(**params)
             raw = guard_complete(p.sql, p.cursor_pos, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.optimize_context":
-            p = SqlGuardOptimizeContextParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.optimize_context":
+            p = AltimateCoreOptimizeContextParams(**params)
             raw = guard_optimize_context(p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.optimize_for_query":
-            p = SqlGuardOptimizeForQueryParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.optimize_for_query":
+            p = AltimateCoreOptimizeForQueryParams(**params)
             raw = guard_optimize_for_query(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.prune_schema":
-            p = SqlGuardPruneSchemaParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.prune_schema":
+            p = AltimateCorePruneSchemaParams(**params)
             raw = guard_prune_schema(p.sql, p.schema_path, p.schema_context)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.import_ddl":
-            p = SqlGuardImportDdlParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.import_ddl":
+            p = AltimateCoreImportDdlParams(**params)
             raw = guard_import_ddl(p.ddl, p.dialect)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.export_ddl":
-            p = SqlGuardExportDdlParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.export_ddl":
+            p = AltimateCoreExportDdlParams(**params)
             raw = guard_export_ddl(p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.fingerprint":
-            p = SqlGuardSchemaFingerprintParams(**params)
+        elif method == "altimate_core.fingerprint":
+            p = AltimateCoreSchemaFingerprintParams(**params)
             raw = guard_schema_fingerprint(p.schema_path, p.schema_context)
-            result = SqlGuardResult(
+            result = AltimateCoreResult(
                 success=raw.get("success", True), data=raw, error=raw.get("error")
             )
-        elif method == "sqlguard.introspection_sql":
-            p = SqlGuardIntrospectionSqlParams(**params)
+        elif method == "altimate_core.introspection_sql":
+            p = AltimateCoreIntrospectionSqlParams(**params)
             raw = guard_introspection_sql(p.db_type, p.database, p.schema_name)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.parse_dbt":
-            p = SqlGuardParseDbtProjectParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.parse_dbt":
+            p = AltimateCoreParseDbtProjectParams(**params)
             raw = guard_parse_dbt_project(p.project_dir)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
-        elif method == "sqlguard.is_safe":
-            p = SqlGuardIsSafeParams(**params)
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
+        elif method == "altimate_core.is_safe":
+            p = AltimateCoreIsSafeParams(**params)
             raw = guard_is_safe(p.sql)
-            result = SqlGuardResult(success=True, data=raw, error=raw.get("error"))
+            result = AltimateCoreResult(success=True, data=raw, error=raw.get("error"))
         # --- dbt discovery ---
         elif method == "dbt.profiles":
             p = DbtProfilesParams(**params)
