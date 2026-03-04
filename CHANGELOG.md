@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-04
+
+### Added
+
+- Context management: auto-compaction with overflow recovery, observation masking, and loop protection
+- Context management: data-engineering-aware compaction template preserving warehouse, schema, dbt, and lineage context
+- Context management: content-aware token estimation (code, JSON, SQL, text heuristics)
+- Context management: observation masking replaces pruned tool outputs with fingerprinted summaries
+- Context management: provider overflow detection for Azure OpenAI patterns
+- CLI observability: telemetry module with session, generation, tool call, and error tracking
+- `/discover` command for data stack setup with project_scan tool
+- User documentation for context management configuration
+
+### Fixed
+
+- ContextOverflowError now triggers automatic compaction instead of a dead-end error
+- `isOverflow()` correctly reserves headroom for models with separate input/output limits
+- `NamedError.isInstance()` no longer crashes on null input
+- Text part duration tracking now preserves original start timestamp
+- Compaction loop protection: max 3 consecutive attempts per turn, counter resets between turns
+- Negative usable context guard for models where headroom exceeds base capacity
+
+### Changed
+
+- Removed cost estimation and complexity scoring bindings
+- Docs: redesigned homepage with hero, feature cards, and pill layouts
+- Docs: reorganized sidebar navigation for better discoverability
+
 ## [0.1.10] - 2026-03-03
 
 ### Fixed
