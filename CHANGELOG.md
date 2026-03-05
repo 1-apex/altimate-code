@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-05
+
+### Added
+
+- Comprehensive telemetry instrumentation: 25 event types across auth, MCP servers, Python engine, provider errors, permissions, upgrades, context utilization, agent outcomes, workflow sequencing, and environment census
+- Telemetry docs page with event table, privacy policy, opt-out instructions, and contributor guide
+- AppInsights endpoint added to network firewall documentation
+- `categorizeToolName()` helper for tool classification (sql, schema, dbt, finops, warehouse, lineage, file, mcp)
+- `bucketCount()` helper for privacy-safe count bucketing
+
+### Fixed
+
+- Command loading made resilient to MCP/Skill initialization failures
+
+### Changed
+
+- CLI binary renamed from `altimate-code` to `altimate`
+
 ## [0.2.0] - 2026-03-04
 
 ### Added
