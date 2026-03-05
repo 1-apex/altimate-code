@@ -303,6 +303,27 @@ export namespace SessionPrompt {
     const session = await Session.get(sessionID)
     await Telemetry.init()
     Telemetry.setContext({ sessionId: sessionID, projectId: Instance.project?.id ?? "" })
+    let emergencySessionEndFired = false
+    const emergencySessionEnd = () => {
+      if (emergencySessionEndFired) return
+      emergencySessionEndFired = true
+      Telemetry.track({
+        type: "session_end",
+        timestamp: Date.now(),
+        session_id: sessionID,
+        total_cost: sessionTotalCost,
+        total_tokens: sessionTotalTokens,
+        tool_call_count: toolCallCount,
+        duration_ms: Date.now() - sessionStartTime,
+      })
+    }
+    // beforeExit covers event-loop drain without entering the session loop.
+    // exit covers process.exit() calls (sync only — track() buffers, flush is best-effort).
+    // SIGINT/SIGTERM are NOT handled here: the abort controller already triggers
+    // loop exit → finally block → normal session_end. Adding signal handlers
+    // would interfere with the default termination behavior.
+    process.once("beforeExit", emergencySessionEnd)
+    process.once("exit", emergencySessionEnd)
     try {
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
@@ -796,6 +817,8 @@ export namespace SessionPrompt {
     }
     SessionCompaction.prune({ sessionID })
     } finally {
+      process.removeListener("beforeExit", emergencySessionEnd)
+      process.removeListener("exit", emergencySessionEnd)
       const outcome: "completed" | "abandoned" | "error" = abort.aborted
         ? "abandoned"
         : sessionHadError
