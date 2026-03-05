@@ -2,6 +2,7 @@ import { Control } from "@/control"
 import { Config } from "@/config/config"
 import { Installation } from "@/installation"
 import { Log } from "@/util/log"
+import { createHash } from "crypto"
 
 const log = Log.create({ service: "telemetry" })
 
@@ -297,6 +298,8 @@ export namespace Telemetry {
   let sessionId = ""
   let projectId = ""
   let appInsights: AppInsightsConfig | undefined
+  let initPromise: Promise<void> | undefined
+  let initDone = false
 
   function parseConnectionString(cs: string): AppInsightsConfig | undefined {
     const parts: Record<string, string> = {}
@@ -365,28 +368,58 @@ export namespace Telemetry {
   const DEFAULT_CONNECTION_STRING =
     "InstrumentationKey=5095f5e6-477e-4262-b7ae-2118de18550d;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=6564474f-329b-4b7d-849e-e70cb4181294"
 
-  export async function init() {
-    if (enabled || flushTimer) return
-    const userConfig = await Config.get()
-    if (userConfig.telemetry?.disabled) return
+  // Deduplicates concurrent calls: non-awaited init() in middleware/worker
+  // won't race with await init() in session prompt.
+  export function init(): Promise<void> {
+    if (!initPromise) {
+      initPromise = doInit()
+    }
+    return initPromise
+  }
+
+  async function doInit() {
     try {
+      if (process.env.ALTIMATE_TELEMETRY_DISABLED === "true") {
+        buffer = []
+        return
+      }
+      // Config.get() may throw outside Instance context (e.g. CLI middleware
+      // before Instance.provide()). Treat config failures as "not disabled" —
+      // the env var check above is the early-init escape hatch.
+      try {
+        const userConfig = await Config.get()
+        if (userConfig.telemetry?.disabled) {
+          buffer = []
+          return
+        }
+      } catch {
+        // Config unavailable — proceed with telemetry enabled
+      }
       // App Insights: env var overrides default (for dev/testing), otherwise use the baked-in key
       const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ?? DEFAULT_CONNECTION_STRING
       const cfg = parseConnectionString(connectionString)
       if (!cfg) {
-        enabled = false
+        buffer = []
         return
       }
       appInsights = cfg
-      const account = Control.account()
-      if (account) userEmail = account.email
+      try {
+        const account = Control.account()
+        if (account) {
+          userEmail = createHash("sha256").update(account.email.toLowerCase().trim()).digest("hex")
+        }
+      } catch {
+        // Account unavailable — proceed without user ID
+      }
       enabled = true
       log.info("telemetry initialized", { mode: "appinsights" })
       const timer = setInterval(flush, FLUSH_INTERVAL_MS)
       if (typeof timer === "object" && timer && "unref" in timer) (timer as any).unref()
       flushTimer = timer
     } catch {
-      enabled = false
+      buffer = []
+    } finally {
+      initDone = true
     }
   }
 
@@ -400,7 +433,9 @@ export namespace Telemetry {
   }
 
   export function track(event: Event) {
-    if (!enabled) return
+    // Before init completes: buffer (flushed once init enables, or cleared if disabled).
+    // After init completed and disabled telemetry: drop silently.
+    if (initDone && !enabled) return
     buffer.push(event)
     if (buffer.length > MAX_BUFFER_SIZE) {
       buffer.shift()
@@ -442,5 +477,7 @@ export namespace Telemetry {
     buffer = []
     sessionId = ""
     projectId = ""
+    initPromise = undefined
+    initDone = false
   }
 }
