@@ -57,8 +57,11 @@ export namespace Telemetry {
         message_id: string
         tool_name: string
         tool_type: "standard" | "mcp"
+        tool_category: string
         status: "success" | "error"
         duration_ms: number
+        sequence_index: number
+        previous_tool: string | null
         error?: string
       }
     | {
@@ -108,6 +111,179 @@ export namespace Telemetry {
         count: number
         tokens_pruned: number
       }
+    | {
+        type: "auth_login"
+        timestamp: number
+        session_id: string
+        provider_id: string
+        method: "oauth" | "api_key"
+        status: "success" | "error"
+        error?: string
+      }
+    | {
+        type: "auth_logout"
+        timestamp: number
+        session_id: string
+        provider_id: string
+      }
+    | {
+        type: "mcp_server_status"
+        timestamp: number
+        session_id: string
+        server_name: string
+        transport: "stdio" | "sse" | "streamable-http"
+        status: "connected" | "disconnected" | "error"
+        error?: string
+        duration_ms?: number
+      }
+    | {
+        type: "provider_error"
+        timestamp: number
+        session_id: string
+        provider_id: string
+        model_id: string
+        error_type: string
+        error_message: string
+        http_status?: number
+      }
+    | {
+        type: "engine_started"
+        timestamp: number
+        session_id: string
+        engine_version: string
+        python_version: string
+        status: "started" | "restarted" | "upgraded"
+        duration_ms: number
+      }
+    | {
+        type: "engine_error"
+        timestamp: number
+        session_id: string
+        phase: "uv_download" | "venv_create" | "pip_install" | "startup" | "runtime"
+        error_message: string
+      }
+    | {
+        type: "upgrade_attempted"
+        timestamp: number
+        session_id: string
+        from_version: string
+        to_version: string
+        method: "npm" | "bun" | "brew" | "other"
+        status: "success" | "error"
+        error?: string
+      }
+    | {
+        type: "session_forked"
+        timestamp: number
+        session_id: string
+        parent_session_id: string
+        message_count: number
+      }
+    | {
+        type: "permission_denied"
+        timestamp: number
+        session_id: string
+        tool_name: string
+        tool_category: string
+        source: "user" | "config_rule"
+      }
+    | {
+        type: "doom_loop_detected"
+        timestamp: number
+        session_id: string
+        tool_name: string
+        repeat_count: number
+      }
+    | {
+        type: "environment_census"
+        timestamp: number
+        session_id: string
+        warehouse_types: string[]
+        warehouse_count: number
+        dbt_detected: boolean
+        dbt_adapter: string | null
+        dbt_model_count_bucket: string
+        dbt_source_count_bucket: string
+        dbt_test_count_bucket: string
+        connection_sources: string[]
+        mcp_server_count: number
+        skill_count: number
+        os: string
+        feature_flags: string[]
+      }
+    | {
+        type: "context_utilization"
+        timestamp: number
+        session_id: string
+        model_id: string
+        tokens_used: number
+        context_limit: number
+        utilization_pct: number
+        generation_number: number
+        cache_hit_ratio: number
+      }
+    | {
+        type: "agent_outcome"
+        timestamp: number
+        session_id: string
+        agent: string
+        tool_calls: number
+        generations: number
+        duration_ms: number
+        cost: number
+        compactions: number
+        outcome: "completed" | "abandoned" | "error"
+      }
+    | {
+        type: "error_recovered"
+        timestamp: number
+        session_id: string
+        error_type: string
+        recovery_strategy: string
+        attempts: number
+        recovered: boolean
+        duration_ms: number
+      }
+    | {
+        type: "mcp_server_census"
+        timestamp: number
+        session_id: string
+        server_name: string
+        transport: "stdio" | "sse" | "streamable-http"
+        tool_count: number
+        resource_count: number
+      }
+
+  const FILE_TOOLS = new Set(["read", "write", "edit", "glob", "grep", "bash"])
+
+  // Order matters: more specific patterns (e.g. "warehouse_usage") are checked
+  // before broader ones (e.g. "warehouse") to avoid miscategorization.
+  const CATEGORY_PATTERNS: Array<{ category: string; keywords: string[] }> = [
+    { category: "finops", keywords: ["cost", "finops", "warehouse_usage"] },
+    { category: "sql", keywords: ["sql", "query"] },
+    { category: "schema", keywords: ["schema", "column", "table"] },
+    { category: "dbt", keywords: ["dbt"] },
+    { category: "warehouse", keywords: ["warehouse", "connection"] },
+    { category: "lineage", keywords: ["lineage", "dag"] },
+  ]
+
+  export function categorizeToolName(name: string, type: "standard" | "mcp"): string {
+    if (type === "mcp") return "mcp"
+    const n = name.toLowerCase()
+    if (FILE_TOOLS.has(n)) return "file"
+    for (const { category, keywords } of CATEGORY_PATTERNS) {
+      if (keywords.some((kw) => n.includes(kw))) return category
+    }
+    return "standard"
+  }
+
+  export function bucketCount(n: number): string {
+    if (n <= 0) return "0"
+    if (n <= 10) return "1-10"
+    if (n <= 50) return "10-50"
+    if (n <= 200) return "50-200"
+    return "200+"
+  }
 
   type AppInsightsConfig = {
     iKey: string

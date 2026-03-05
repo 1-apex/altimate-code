@@ -153,6 +153,8 @@ export namespace SessionCompaction {
     }
   }
 
+  const compactionAttempts = new Map<string, number>()
+
   export async function process(input: {
     parentID: string
     messages: MessageV2.WithParts[]
@@ -160,6 +162,15 @@ export namespace SessionCompaction {
     abort: AbortSignal
     auto: boolean
   }) {
+    const attempt = (compactionAttempts.get(input.sessionID) ?? 0) + 1
+    compactionAttempts.set(input.sessionID, attempt)
+    Telemetry.track({
+      type: "compaction_triggered",
+      timestamp: Date.now(),
+      session_id: input.sessionID,
+      trigger: input.auto ? "overflow_detection" : "error_recovery",
+      attempt,
+    })
     const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)!.info as MessageV2.User
     const agent = await Agent.get("compaction")
     const model = agent.model
