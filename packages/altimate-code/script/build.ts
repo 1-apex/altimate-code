@@ -129,6 +129,17 @@ const allTargets: {
   },
 ]
 
+// If --targets is provided, filter to only matching OS values
+const validOsValues = new Set(allTargets.map(t => t.os))
+const targetsFlag = process.argv.find(a => a.startsWith('--targets='))?.split('=')[1]?.split(',')
+if (targetsFlag) {
+  const invalid = targetsFlag.filter(t => !validOsValues.has(t))
+  if (invalid.length > 0) {
+    console.error(`error: invalid --targets value(s): ${invalid.join(', ')}. Valid values: ${[...validOsValues].join(', ')}`)
+    process.exit(1)
+  }
+}
+
 const targets = singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
@@ -148,7 +159,9 @@ const targets = singleFlag
 
       return true
     })
-  : allTargets
+  : targetsFlag
+    ? allTargets.filter(t => targetsFlag.includes(t.os))
+    : allTargets
 
 await $`rm -rf dist`
 
