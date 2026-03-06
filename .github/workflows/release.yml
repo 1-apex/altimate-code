@@ -27,7 +27,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461 # v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.10"
 
       - name: Cache Bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -41,7 +41,7 @@ jobs:
         run: bun install
 
       - name: Build ${{ matrix.os }} targets
-        run: bun run packages/altimate-code/script/build.ts --targets=${{ matrix.os }}
+        run: bun run packages/opencode/script/build.ts --targets=${{ matrix.os }}
         env:
           OPENCODE_VERSION: ${{ github.ref_name }}
           OPENCODE_CHANNEL: latest
@@ -53,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist-${{ matrix.os }}
-          path: packages/altimate-code/dist/
+          path: packages/opencode/dist/
 
   publish-npm:
     name: Publish to npm
@@ -66,7 +66,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461 # v2
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.10"
 
       - name: Cache Bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -83,7 +83,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: dist-*
-          path: packages/altimate-code/dist/
+          path: packages/opencode/dist/
           merge-multiple: true
 
       - name: Configure npm auth
@@ -108,7 +108,7 @@ jobs:
       #     AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
 
       - name: Publish to npm
-        run: bun run packages/altimate-code/script/publish.ts
+        run: bun run packages/opencode/script/publish.ts
         env:
           OPENCODE_VERSION: ${{ github.ref_name }}
           OPENCODE_CHANNEL: latest
@@ -213,7 +213,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: dist-*
-          path: packages/altimate-code/dist/
+          path: packages/opencode/dist/
           merge-multiple: true
 
       - name: Create GitHub Release
@@ -223,7 +223,7 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
-            packages/altimate-code/dist/*.tar.gz
-            packages/altimate-code/dist/*.zip
+            packages/opencode/dist/*.tar.gz
+            packages/opencode/dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
