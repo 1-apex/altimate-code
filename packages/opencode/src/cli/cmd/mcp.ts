@@ -56,6 +56,7 @@ export const McpCommand = cmd({
   builder: (yargs) =>
     yargs
       .command(McpAddCommand)
+      .command(McpRemoveCommand)
       .command(McpListCommand)
       .command(McpAuthCommand)
       .command(McpLogoutCommand)
@@ -398,6 +399,25 @@ async function resolveConfigPath(baseDir: string, global = false) {
   return candidates[0]
 }
 
+async function removeMcpFromConfig(name: string, configPath: string) {
+  if (!(await Filesystem.exists(configPath))) {
+    return false
+  }
+
+  const text = await Filesystem.readText(configPath)
+  const edits = modify(text, ["mcp", name], undefined, {
+    formattingOptions: { tabSize: 2, insertSpaces: true },
+  })
+
+  if (edits.length === 0) {
+    return false
+  }
+
+  const result = applyEdits(text, edits)
+  await Filesystem.write(configPath, result)
+  return true
+}
+
 async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: string) {
   let text = "{}"
   if (await Filesystem.exists(configPath)) {
@@ -418,10 +438,79 @@ async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: s
 export const McpAddCommand = cmd({
   command: "add",
   describe: "add an MCP server",
-  async handler() {
+  builder: (yargs) =>
+    yargs
+      .option("name", { type: "string", describe: "MCP server name" })
+      .option("type", { type: "string", describe: "Server type", choices: ["local", "remote"] })
+      .option("url", { type: "string", describe: "Server URL (for remote type)" })
+      .option("command", { type: "string", describe: "Command to run (for local type)" })
+      .option("header", { type: "array", string: true, describe: "HTTP headers as key=value (repeatable)" })
+      .option("oauth", { type: "boolean", describe: "Enable OAuth", default: true })
+      .option("global", { type: "boolean", describe: "Add to global config", default: false }),
+  async handler(args) {
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
+        // Non-interactive mode: all required args provided via flags
+        if (args.name && args.type) {
+          if (!args.name.trim()) {
+            console.error("MCP server name cannot be empty")
+            process.exit(1)
+          }
+
+          const useGlobal = args.global || Instance.project.vcs !== "git"
+          const configPath = await resolveConfigPath(
+            useGlobal ? Global.Path.config : Instance.worktree,
+            useGlobal,
+          )
+
+          let mcpConfig: Config.Mcp
+
+          if (args.type === "local") {
+            if (!args.command?.trim()) {
+              console.error("--command is required for local type")
+              process.exit(1)
+            }
+            mcpConfig = {
+              type: "local",
+              command: args.command.trim().split(/\s+/).filter(Boolean),
+            }
+          } else {
+            if (!args.url) {
+              console.error("--url is required for remote type")
+              process.exit(1)
+            }
+            if (!URL.canParse(args.url)) {
+              console.error(`Invalid URL: ${args.url}`)
+              process.exit(1)
+            }
+
+            const headers: Record<string, string> = {}
+            if (args.header) {
+              for (const h of args.header) {
+                const eq = h.indexOf("=")
+                if (eq === -1) {
+                  console.error(`Invalid header format: ${h} (expected key=value)`)
+                  process.exit(1)
+                }
+                headers[h.substring(0, eq)] = h.substring(eq + 1)
+              }
+            }
+
+            mcpConfig = {
+              type: "remote",
+              url: args.url,
+              ...(!args.oauth ? { oauth: false as const } : {}),
+              ...(Object.keys(headers).length > 0 ? { headers } : {}),
+            }
+          }
+
+          await addMcpToConfig(args.name, mcpConfig, configPath)
+          console.log(`MCP server "${args.name}" added to ${configPath}`)
+          return
+        }
+
+        // Interactive mode: existing behavior
         UI.empty()
         prompts.intro("Add MCP server")
 
@@ -574,6 +663,60 @@ export const McpAddCommand = cmd({
         }
 
         prompts.outro("MCP server added successfully")
+      },
+    })
+  },
+})
+
+export const McpRemoveCommand = cmd({
+  command: "remove <name>",
+  aliases: ["rm"],
+  describe: "remove an MCP server",
+  builder: (yargs) =>
+    yargs
+      .positional("name", {
+        describe: "name of the MCP server to remove",
+        type: "string",
+        demandOption: true,
+      })
+      .option("global", { type: "boolean", describe: "Remove from global config", default: false }),
+  async handler(args) {
+    await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        const useGlobal = args.global || Instance.project.vcs !== "git"
+        const configPath = await resolveConfigPath(
+          useGlobal ? Global.Path.config : Instance.worktree,
+          useGlobal,
+        )
+
+        const removed = await removeMcpFromConfig(args.name, configPath)
+        if (removed) {
+          console.log(`MCP server "${args.name}" removed from ${configPath}`)
+        } else if (Instance.project.vcs === "git" && !args.global) {
+          // Try global scope as fallback only when in a git repo
+          const globalPath = await resolveConfigPath(Global.Path.config, true)
+          const removedGlobal = await removeMcpFromConfig(args.name, globalPath)
+          if (removedGlobal) {
+            console.log(`MCP server "${args.name}" removed from ${globalPath}`)
+          } else {
+            console.error(`MCP server "${args.name}" not found in any config`)
+            process.exit(1)
+          }
+        } else if (args.global && Instance.project.vcs === "git") {
+          // Try local scope as fallback when --global was explicit and we're in a git repo
+          const localPath = await resolveConfigPath(Instance.worktree, false)
+          const removedLocal = await removeMcpFromConfig(args.name, localPath)
+          if (removedLocal) {
+            console.log(`MCP server "${args.name}" removed from ${localPath}`)
+          } else {
+            console.error(`MCP server "${args.name}" not found in any config`)
+            process.exit(1)
+          }
+        } else {
+          console.error(`MCP server "${args.name}" not found in any config`)
+          process.exit(1)
+        }
       },
     })
   },
