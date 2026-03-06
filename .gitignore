@@ -1,48 +1,30 @@
-# Dependencies
-node_modules/
-.venv/
-
-# Build artifacts
-.turbo/
-dist/
-*.tsbuildinfo
-
-# OS files
 .DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Environment
+node_modules
+.worktrees
+.sst
 .env
-.env.local
+.idea
+.vscode
+.codex
+*~
+playground
+tmp
+dist
+ts-dist
+.turbo
+**/.serena
+.serena/
+/result
+refs
+Session.vim
+opencode.json
+a.out
+target
+.scripts
+.direnv/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-
-# SQLite databases (feedback store creates these at runtime)
-*.db
-
-# Large intermediate files at repo root (generated during benchmark runs)
-/queries.json
-/queries_1k.json
-/results/
-
-# Local runtime config
-.altimate-code/
-
-# Commit message scratch files
-.github/meta/
-
-# Experiment / simulation artifacts
-/data/
-/experiments/
-/models/
-/simulation/
+# Local dev files
+opencode-dev
+logs/
+*.bun-build
+tsconfig.tsbuildinfo
