@@ -13,17 +13,18 @@
  *   2. Create merge branch
  *   3. Start git merge (expect conflicts)
  *   4. Resolve keepOurs files (our custom code)
- *   5. Resolve skipFiles (unused upstream packages)
+ *   5. Resolve skipFiles (accept upstream for packages we don't modify)
  *   6. Resolve lock files (accept ours, regenerate later)
  *   7. Report remaining conflicts for manual resolution
- *   8. After manual resolution: regenerate lock file
+ *   8. After manual resolution: regenerate lock file, build, test
  */
 
 import { parseArgs } from "util"
+import { execSync } from "child_process"
 import { git, gitSafe, tagExists, currentBranch, hasUncommittedChanges, conflictedFiles } from "./utils/git"
 import { loadConfig, repoRoot } from "./utils/config"
 import { resolveKeepOurs } from "./transforms/keep-ours"
-import { resolveSkipFiles, cleanSkippedPackages } from "./transforms/skip-files"
+import { resolveSkipFiles } from "./transforms/skip-files"
 import { resolveLockFiles, regenerateLockFile } from "./transforms/lock-files"
 
 const { values: args } = parseArgs({
@@ -87,7 +88,7 @@ async function main() {
 
   if (mergeResult !== null) {
     console.log("  Merge completed without conflicts!")
-    await postMerge(config)
+    await postMerge()
     return
   }
 
@@ -100,9 +101,9 @@ async function main() {
   for (const f of keepOursResult.resolved) console.log(`    ✓ ${f}`)
 
   // Step 5: Resolve skipFiles
-  console.log("\nStep 5: Resolving skipFiles (unused packages)...")
+  console.log("\nStep 5: Resolving skipFiles (accept upstream)...")
   const skipResult = resolveSkipFiles()
-  console.log(`  Resolved ${skipResult.resolved.length} files (removed)`)
+  console.log(`  Resolved ${skipResult.resolved.length} files (accepted upstream)`)
 
   // Step 6: Resolve lock files
   console.log("\nStep 6: Resolving lock files...")
@@ -114,7 +115,7 @@ async function main() {
   if (remaining.length === 0) {
     console.log("\nAll conflicts resolved automatically!")
     git("commit --no-edit")
-    await postMerge(config)
+    await postMerge()
   } else {
     console.log(`\nStep 7: ${remaining.length} files need manual resolution:`)
     for (const f of remaining) {
@@ -128,7 +129,6 @@ async function main() {
 }
 
 async function continueAfterManualResolution() {
-  const config = loadConfig()
   const remaining = conflictedFiles()
 
   if (remaining.length > 0) {
@@ -139,28 +139,69 @@ async function continueAfterManualResolution() {
 
   console.log("All conflicts resolved. Continuing merge...")
   git("commit --no-edit")
-  await postMerge(config)
+  await postMerge()
 }
 
-async function postMerge(config: ReturnType<typeof loadConfig>) {
-  // Clean up skipped packages that might have been added by upstream
-  console.log("\nPost-merge: Cleaning skipped packages...")
-  const cleaned = cleanSkippedPackages()
-  if (cleaned.length > 0) {
-    console.log(`  Removed ${cleaned.length} skipped directories`)
-    git('commit -m "chore: remove unused upstream packages after merge"')
-  }
+async function postMerge() {
+  const root = repoRoot()
+  const pkgDir = `${root}/packages/opencode`
 
-  // Regenerate lock file
-  console.log("\nPost-merge: Regenerating lock file...")
+  // Step 8: Regenerate lock file
+  console.log("\nStep 8: Regenerating lock file...")
   regenerateLockFile()
   git('commit -m "chore: regenerate bun.lock after upstream merge"')
 
-  console.log("\n✅ Merge complete!")
-  console.log("Next steps:")
-  console.log("  1. bun run build")
-  console.log("  2. bun test")
-  console.log("  3. Review changes: git log --oneline HEAD~5..HEAD")
+  // Step 9: Build
+  console.log("\nStep 9: Building...")
+  try {
+    execSync("bun run build", { cwd: pkgDir, stdio: "inherit" })
+    console.log("  ✓ Build passed")
+  } catch {
+    console.error("\n  ✗ Build failed!")
+    console.error("  Fix build errors, then:")
+    console.error("    git add -A && git commit -m 'fix: resolve build errors after upstream merge'")
+    console.error("    bun run script/upstream/merge.ts --continue")
+    process.exit(1)
+  }
+
+  // Step 10: Test
+  console.log("\nStep 10: Running tests...")
+  try {
+    const testResult = execSync("bun test 2>&1", { cwd: pkgDir, encoding: "utf-8" })
+    // Extract summary line
+    const summary = testResult.split("\n").find((l) => l.includes("pass") && l.includes("fail"))
+    if (summary) console.log(`  ${summary.trim()}`)
+    console.log("  ✓ Tests passed")
+  } catch (e: any) {
+    // Tests may have failures — extract summary to show
+    const output = e.stdout || e.stderr || ""
+    const summary = output.split("\n").find((l: string) => l.includes("pass") && l.includes("fail"))
+    if (summary) {
+      console.log(`  ${summary.trim()}`)
+    }
+    console.warn("  ⚠ Some tests failed — review output above")
+    console.warn("  If failures are pre-existing (same as main), this is OK")
+  }
+
+  // Step 11: Typecheck
+  console.log("\nStep 11: Running typecheck...")
+  try {
+    execSync("bun run typecheck", { cwd: pkgDir, stdio: "inherit" })
+    console.log("  ✓ Typecheck passed")
+  } catch {
+    console.warn("  ⚠ Typecheck has errors — review output above")
+    console.warn("  If errors are pre-existing (same as main), this is OK")
+  }
+
+  console.log("\n═══════════════════════════════════════════════")
+  console.log("  MERGE COMPLETE")
+  console.log("═══════════════════════════════════════════════")
+  console.log("\nReview:")
+  console.log(`  git log --oneline HEAD~5..HEAD`)
+  console.log(`  git diff main --stat`)
+  console.log("\nWhen ready:")
+  console.log(`  git push -u origin $(git branch --show-current)`)
+  console.log(`  gh pr create --base main`)
 }
 
 async function reportOnly(version: string, config: ReturnType<typeof loadConfig>) {
@@ -194,7 +235,7 @@ async function reportOnly(version: string, config: ReturnType<typeof loadConfig>
   }
 
   console.log(`\nKeepOurs (auto-resolved): ${keepOurs.length}`)
-  console.log(`SkipFiles (auto-removed): ${skipFiles.length}`)
+  console.log(`SkipFiles (accept upstream): ${skipFiles.length}`)
   console.log(`Safe updates (no conflict): ${safeUpdates.length}`)
   console.log(`Potential conflicts (manual review): ${potentialConflicts.length}`)
 

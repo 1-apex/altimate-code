@@ -31,6 +31,7 @@ import {
 import { Log } from "../util/log"
 import { pathToFileURL } from "bun"
 import { Filesystem } from "../util/filesystem"
+import { Hash } from "../util/hash"
 import { ACPSessionManager } from "./session"
 import type { ACPConfig } from "./types"
 import { Provider } from "../provider/provider"
@@ -41,7 +42,7 @@ import { Config } from "@/config/config"
 import { Todo } from "@/session/todo"
 import { z } from "zod"
 import { LoadAPIKeyError } from "ai"
-import type { AssistantMessage, Event, OpencodeClient, SessionMessageResponse } from "@opencode-ai/sdk/v2"
+import type { AssistantMessage, Event, OpencodeClient, SessionMessageResponse, ToolPart } from "@opencode-ai/sdk/v2"
 import { applyPatch } from "diff"
 
 type ModeOption = { id: string; name: string; description?: string }
@@ -135,6 +136,7 @@ export namespace ACP {
     private sessionManager: ACPSessionManager
     private eventAbort = new AbortController()
     private eventStarted = false
+    private bashSnapshots = new Map<string, string>()
     private permissionQueues = new Map<string, Promise<void>>()
     private permissionOptions: PermissionOption[] = [
       { optionId: "once", kind: "allow_once", name: "Allow once" },
@@ -307,6 +309,40 @@ export namespace ACP {
                 return
 
               case "running":
+                const output = this.bashOutput(part)
+                const content: ToolCallContent[] = []
+                if (output) {
+                  const hash = Hash.fast(output)
+                  if (part.tool === "bash") {
+                    if (this.bashSnapshots.get(part.callID) === hash) {
+                      await this.connection
+                        .sessionUpdate({
+                          sessionId,
+                          update: {
+                            sessionUpdate: "tool_call_update",
+                            toolCallId: part.callID,
+                            status: "in_progress",
+                            kind: toToolKind(part.tool),
+                            title: part.tool,
+                            locations: toLocations(part.tool, part.state.input),
+                            rawInput: part.state.input,
+                          },
+                        })
+                        .catch((error) => {
+                          log.error("failed to send tool in_progress to ACP", { error })
+                        })
+                      return
+                    }
+                    this.bashSnapshots.set(part.callID, hash)
+                  }
+                  content.push({
+                    type: "content",
+                    content: {
+                      type: "text",
+                      text: output,
+                    },
+                  })
+                }
                 await this.connection
                   .sessionUpdate({
                     sessionId,
@@ -1431,6 +1467,14 @@ export namespace ACP {
         },
         { throwOnError: true },
       )
+    }
+
+    private bashOutput(part: ToolPart) {
+      if (part.tool !== "bash") return
+      if (!("metadata" in part.state) || !part.state.metadata || typeof part.state.metadata !== "object") return
+      const output = part.state.metadata["output"]
+      if (typeof output !== "string") return
+      return output
     }
   }
 

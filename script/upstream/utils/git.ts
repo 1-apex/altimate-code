@@ -32,7 +32,8 @@ export function currentBranch(): string {
 }
 
 export function hasUncommittedChanges(): boolean {
-  return git("status --porcelain").length > 0
+  // Only check tracked files — untracked files shouldn't block merges
+  return git("status --porcelain -uno").length > 0
 }
 
 export function conflictedFiles(): string[] {
