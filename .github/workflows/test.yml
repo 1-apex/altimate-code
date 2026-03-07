@@ -16,7 +16,7 @@ jobs:
           - name: linux
             host: arc-runner-altimate-code
           - name: windows
-            host: arc-runner-windows-altimate-code
+            host: windows-latest
     runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
@@ -49,7 +49,7 @@ jobs:
             host: arc-runner-altimate-code
             playwright: bunx playwright install --with-deps
           - name: windows
-            host: arc-runner-windows-altimate-code
+            host: windows-latest
             playwright: bunx playwright install
     runs-on: ${{ matrix.settings.host }}
     env:
