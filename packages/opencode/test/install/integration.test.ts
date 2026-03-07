@@ -31,7 +31,7 @@ describe("install pipeline integration", () => {
     const postResult = runPostinstall(dir)
     expect(postResult.exitCode).toBe(0)
 
-    const cachedBin = path.join(dir, "bin", ".opencode")
+    const cachedBin = path.join(dir, "bin", ".altimate-code")
     expect(fs.existsSync(cachedBin)).toBe(true)
 
     // 3. Place bin wrapper in the same bin/ directory
@@ -57,7 +57,7 @@ describe("install pipeline integration", () => {
     expect(postResult.stderr).toContain("Failed to setup altimate-code binary")
 
     // 2. No cached binary was created
-    expect(fs.existsSync(path.join(dir, "bin", ".opencode"))).toBe(false)
+    expect(fs.existsSync(path.join(dir, "bin", ".altimate-code"))).toBe(false)
 
     // 3. Bin wrapper also fails with helpful error when invoked directly
     const wrapperPkgBin = path.join(dir, "node_modules", "@altimateai", "altimate-code", "bin")

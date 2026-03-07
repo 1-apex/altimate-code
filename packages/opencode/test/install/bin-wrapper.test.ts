@@ -47,7 +47,7 @@ describe("bin/altimate-code wrapper", () => {
 
     const wrapperPath = copyBinWrapper(dir)
     const binDir = path.dirname(wrapperPath)
-    createDummyBinary(binDir, ".opencode")
+    createDummyBinary(binDir, ".altimate-code")
 
     const result = runBinWrapper(wrapperPath)
     expect(result.exitCode).toBe(0)
@@ -111,6 +111,6 @@ describe("bin/altimate-code wrapper", () => {
 
     const result = runBinWrapper(wrapperPath)
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain(`@opencode-ai/opencode-${CURRENT_PLATFORM}-${CURRENT_ARCH}`)
+    expect(result.stderr).toContain(`@altimateai/altimate-code-${CURRENT_PLATFORM}-${CURRENT_ARCH}`)
   })
 })

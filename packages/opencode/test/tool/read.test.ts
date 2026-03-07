@@ -163,7 +163,7 @@ describe("tool.read env file permissions", () => {
     ["environment.ts", false],
   ]
 
-  describe.each(["build", "plan"])("agent=%s", (agentName) => {
+  describe.each(["builder", "plan"])("agent=%s", (agentName) => {
     test.each(cases)("%s asks=%s", async (filename, shouldAsk) => {
       await using tmp = await tmpdir({
         init: (dir) => Bun.write(path.join(dir, filename), "content"),
@@ -172,17 +172,18 @@ describe("tool.read env file permissions", () => {
         directory: tmp.path,
         fn: async () => {
           const agent = await Agent.get(agentName)
+          expect(agent).toBeDefined()
           let askedForEnv = false
           const ctxWithPermissions = {
             ...ctx,
             ask: async (req: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">) => {
               for (const pattern of req.patterns) {
-                const rule = PermissionNext.evaluate(req.permission, pattern, agent.permission)
+                const rule = PermissionNext.evaluate(req.permission, pattern, agent!.permission)
                 if (rule.action === "ask" && req.permission === "read") {
                   askedForEnv = true
                 }
                 if (rule.action === "deny") {
-                  throw new PermissionNext.DeniedError(agent.permission)
+                  throw new PermissionNext.DeniedError(agent!.permission)
                 }
               }
             },

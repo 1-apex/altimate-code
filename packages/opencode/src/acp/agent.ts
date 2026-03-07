@@ -137,6 +137,7 @@ export namespace ACP {
     private eventAbort = new AbortController()
     private eventStarted = false
     private bashSnapshots = new Map<string, string>()
+    private pendingEmitted = new Set<string>()
     private permissionQueues = new Map<string, Promise<void>>()
     private permissionOptions: PermissionOption[] = [
       { optionId: "once", kind: "allow_once", name: "Allow once" },
@@ -290,6 +291,8 @@ export namespace ACP {
           if (part.type === "tool") {
             switch (part.state.status) {
               case "pending":
+                this.bashSnapshots.delete(part.callID)
+                this.pendingEmitted.add(part.callID)
                 await this.connection
                   .sessionUpdate({
                     sessionId,
@@ -309,6 +312,25 @@ export namespace ACP {
                 return
 
               case "running":
+                if (!this.pendingEmitted.has(part.callID)) {
+                  this.pendingEmitted.add(part.callID)
+                  await this.connection
+                    .sessionUpdate({
+                      sessionId,
+                      update: {
+                        sessionUpdate: "tool_call",
+                        toolCallId: part.callID,
+                        title: part.tool,
+                        kind: toToolKind(part.tool),
+                        status: "pending",
+                        locations: [],
+                        rawInput: {},
+                      },
+                    })
+                    .catch((error) => {
+                      log.error("failed to send synthetic tool pending to ACP", { error })
+                    })
+                }
                 const output = this.bashOutput(part)
                 const content: ToolCallContent[] = []
                 if (output) {
@@ -354,6 +376,7 @@ export namespace ACP {
                       title: part.tool,
                       locations: toLocations(part.tool, part.state.input),
                       rawInput: part.state.input,
+                      ...(content.length > 0 && { content }),
                     },
                   })
                   .catch((error) => {
@@ -838,6 +861,7 @@ export namespace ACP {
         if (part.type === "tool") {
           switch (part.state.status) {
             case "pending":
+              this.pendingEmitted.add(part.callID)
               await this.connection
                 .sessionUpdate({
                   sessionId,
@@ -856,6 +880,25 @@ export namespace ACP {
                 })
               break
             case "running":
+              if (!this.pendingEmitted.has(part.callID)) {
+                this.pendingEmitted.add(part.callID)
+                await this.connection
+                  .sessionUpdate({
+                    sessionId,
+                    update: {
+                      sessionUpdate: "tool_call",
+                      toolCallId: part.callID,
+                      title: part.tool,
+                      kind: toToolKind(part.tool),
+                      status: "pending",
+                      locations: [],
+                      rawInput: {},
+                    },
+                  })
+                  .catch((err) => {
+                    log.error("failed to send synthetic tool pending to ACP", { error: err })
+                  })
+              }
               await this.connection
                 .sessionUpdate({
                   sessionId,
