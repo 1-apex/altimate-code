@@ -35,6 +35,8 @@ import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
 import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
+import { TuiConfigProvider } from "@tui/context/tui-config"
+import type { TuiConfig } from "@/config/tui"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
@@ -108,6 +110,7 @@ export function tui(input: {
   fetch?: typeof fetch
   headers?: RequestInit["headers"]
   events?: EventSource
+  tuiConfig?: TuiConfig.Info
   onExit?: () => Promise<void>
 }) {
   // promise to prevent immediate exit
@@ -116,6 +119,7 @@ export function tui(input: {
     win32DisableProcessedInput()
 
     const mode = await getTerminalBackgroundColor()
+    const tuiConfig = input.tuiConfig ?? {}
 
     // Re-clear after getTerminalBackgroundColor() — setRawMode(false) restores
     // the original console mode which re-enables ENABLE_PROCESSED_INPUT.
@@ -146,9 +150,10 @@ export function tui(input: {
                         events={input.events}
                       >
                         <SyncProvider>
-                          <ThemeProvider mode={mode}>
-                            <LocalProvider>
-                              <KeybindProvider>
+                          <TuiConfigProvider config={tuiConfig}>
+                            <ThemeProvider mode={mode}>
+                              <LocalProvider>
+                                <KeybindProvider>
                                 <PromptStashProvider>
                                   <DialogProvider>
                                     <CommandProvider>
@@ -164,7 +169,8 @@ export function tui(input: {
                                 </PromptStashProvider>
                               </KeybindProvider>
                             </LocalProvider>
-                          </ThemeProvider>
+                            </ThemeProvider>
+                          </TuiConfigProvider>
                         </SyncProvider>
                       </SDKProvider>
                     </RouteProvider>
