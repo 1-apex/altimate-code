@@ -99,6 +99,7 @@ import { AltimateCoreIntrospectionSqlTool } from "../altimate/tools/altimate-cor
 import { AltimateCoreParseDbtTool } from "../altimate/tools/altimate-core-parse-dbt"
 import { AltimateCoreIsSafeTool } from "../altimate/tools/altimate-core-is-safe"
 import { ProjectScanTool } from "../altimate/tools/project-scan"
+import { DatamateManagerTool } from "../altimate/tools/datamate"
 // altimate_change end
 
 export namespace ToolRegistry {
@@ -261,6 +262,7 @@ export namespace ToolRegistry {
       AltimateCoreParseDbtTool,
       AltimateCoreIsSafeTool,
       ProjectScanTool,
+      DatamateManagerTool,
       // altimate_change end
       ...custom,
     ]

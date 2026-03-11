@@ -145,7 +145,9 @@ export namespace Config {
       // altimate_change start - support both .altimate-code and .opencode config dirs
       if (dir.endsWith(".altimate-code") || dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR) {
       // altimate_change end
-        for (const file of ["opencode.jsonc", "opencode.json"]) {
+        // altimate_change start - support altimate-code.json config filename
+        for (const file of ["altimate-code.json", "opencode.jsonc", "opencode.json"]) {
+        // altimate_change end
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker
@@ -185,7 +187,9 @@ export namespace Config {
     // which would fail on system directories requiring elevated permissions
     // This way it only loads config file and not skills/plugins/commands
     if (existsSync(managedDir)) {
-      for (const file of ["opencode.jsonc", "opencode.json"]) {
+      // altimate_change start - support altimate-code.json config filename
+      for (const file of ["altimate-code.json", "opencode.jsonc", "opencode.json"]) {
+      // altimate_change end
         result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
       }
     }
@@ -1184,6 +1188,9 @@ export namespace Config {
       mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
+      // altimate_change start - support altimate-code.json config filename
+      mergeDeep(await loadFile(path.join(Global.Path.config, "altimate-code.json"))),
+      // altimate_change end
     )
 
     const legacy = path.join(Global.Path.config, "config")
@@ -1297,9 +1304,11 @@ export namespace Config {
   }
 
   function globalConfigFile() {
-    const candidates = ["opencode.jsonc", "opencode.json", "config.json"].map((file) =>
+    // altimate_change start - support altimate-code.json config filename
+    const candidates = ["altimate-code.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )
+    // altimate_change end
     for (const file of candidates) {
       if (existsSync(file)) return file
     }

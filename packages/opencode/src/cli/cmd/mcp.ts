@@ -12,9 +12,8 @@ import { Instance } from "../../project/instance"
 import { Installation } from "../../installation"
 import path from "path"
 import { Global } from "../../global"
-import { modify, applyEdits } from "jsonc-parser"
-import { Filesystem } from "../../util/filesystem"
 import { Bus } from "../../bus"
+import { resolveConfigPath, addMcpToConfig, removeMcpFromConfig } from "../../mcp/config"
 
 function getAuthStatusIcon(status: MCP.AuthStatus): string {
   switch (status) {
@@ -381,60 +380,6 @@ export const McpLogoutCommand = cmd({
   },
 })
 
-async function resolveConfigPath(baseDir: string, global = false) {
-  // Check for existing config files (prefer .jsonc over .json, check .opencode/ subdirectory too)
-  const candidates = [path.join(baseDir, "altimate-code.json"), path.join(baseDir, "altimate-code.jsonc")]
-
-  if (!global) {
-    candidates.push(path.join(baseDir, ".opencode", "altimate-code.json"), path.join(baseDir, ".opencode", "altimate-code.jsonc"))
-  }
-
-  for (const candidate of candidates) {
-    if (await Filesystem.exists(candidate)) {
-      return candidate
-    }
-  }
-
-  // Default to altimate-code.json if none exist
-  return candidates[0]
-}
-
-async function removeMcpFromConfig(name: string, configPath: string) {
-  if (!(await Filesystem.exists(configPath))) {
-    return false
-  }
-
-  const text = await Filesystem.readText(configPath)
-  const edits = modify(text, ["mcp", name], undefined, {
-    formattingOptions: { tabSize: 2, insertSpaces: true },
-  })
-
-  if (edits.length === 0) {
-    return false
-  }
-
-  const result = applyEdits(text, edits)
-  await Filesystem.write(configPath, result)
-  return true
-}
-
-async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: string) {
-  let text = "{}"
-  if (await Filesystem.exists(configPath)) {
-    text = await Filesystem.readText(configPath)
-  }
-
-  // Use jsonc-parser to modify while preserving comments
-  const edits = modify(text, ["mcp", name], mcpConfig, {
-    formattingOptions: { tabSize: 2, insertSpaces: true },
-  })
-  const result = applyEdits(text, edits)
-
-  await Filesystem.write(configPath, result)
-
-  return configPath
-}
-
 export const McpAddCommand = cmd({
   command: "add",
   describe: "add an MCP server",
@@ -510,7 +455,7 @@ export const McpAddCommand = cmd({
           return
         }
 
-        // Interactive mode: existing behavior
+        // Interactive mode
         UI.empty()
         prompts.intro("Add MCP server")
 
@@ -694,7 +639,6 @@ export const McpRemoveCommand = cmd({
         if (removed) {
           console.log(`MCP server "${args.name}" removed from ${configPath}`)
         } else if (Instance.project.vcs === "git" && !args.global) {
-          // Try global scope as fallback only when in a git repo
           const globalPath = await resolveConfigPath(Global.Path.config, true)
           const removedGlobal = await removeMcpFromConfig(args.name, globalPath)
           if (removedGlobal) {
@@ -704,7 +648,6 @@ export const McpRemoveCommand = cmd({
             process.exit(1)
           }
         } else if (args.global && Instance.project.vcs === "git") {
-          // Try local scope as fallback when --global was explicit and we're in a git repo
           const localPath = await resolveConfigPath(Instance.worktree, false)
           const removedLocal = await removeMcpFromConfig(args.name, localPath)
           if (removedLocal) {

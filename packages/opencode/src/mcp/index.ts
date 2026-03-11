@@ -276,12 +276,14 @@ export namespace MCP {
         error: "unknown error",
       }
       s.status[name] = status
+      Bus.publish(ToolsChanged, { server: name })
       return {
         status,
       }
     }
     if (!result.mcpClient) {
       s.status[name] = result.status
+      Bus.publish(ToolsChanged, { server: name })
       return {
         status: s.status,
       }
@@ -296,6 +298,8 @@ export namespace MCP {
     s.clients[name] = result.mcpClient
     s.status[name] = result.status
     if (result.transport) s.transports[name] = result.transport
+
+    Bus.publish(ToolsChanged, { server: name })
 
     return {
       status: s.status,
@@ -595,6 +599,13 @@ export namespace MCP {
       result[key] = s.status[key] ?? { status: "disabled" }
     }
 
+    // Include dynamically added servers not yet in cached config
+    for (const [key, st] of Object.entries(s.status)) {
+      if (!(key in result)) {
+        result[key] = st
+      }
+    }
+
     return result
   }
 
@@ -662,6 +673,14 @@ export namespace MCP {
     })
     delete s.transports[name]
     s.status[name] = { status: "disabled" }
+  }
+
+  /** Fully remove a dynamically-added MCP server — disconnects, and purges from runtime state. */
+  export async function remove(name: string) {
+    await disconnect(name)
+    const s = await state()
+    delete s.status[name]
+    Bus.publish(ToolsChanged, { server: name })
   }
 
   export async function tools() {
