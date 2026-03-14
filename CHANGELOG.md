@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2026-03-13
+
+### Added
+
+- `/feedback` command and `feedback_submit` tool for in-app user feedback (#89)
+- Datamate manager — dynamic MCP server management (#99)
+- Non-interactive mode for `mcp add` command with input validation
+- `mcp remove` command
+- Upstream merge with OpenCode v1.2.20
+
+### Fixed
+
+- TUI crash after upstream merge (#98)
+- `GitlabAuthPlugin` type incompatibility in plugin loader (#92)
+- All test failures from fork restructure (#91)
+- CI/CD workflow paths updated from `altimate-code` to `opencode`
+- Fallback to global config when not in a git repo
+- PR standards workflow `TEAM_MEMBERS` ref corrected from `dev` to `main` (#101)
+
+### Changed
+
+- Removed self-hosted runners from public repo CI (#110)
+- Migrated CI/release to ARC runners (#93, #94)
+- Reverted Windows tests to `windows-latest` (#95)
+- Engine version bumped to 0.2.5
+
 ## [0.2.4] - 2026-03-04
 
 ### Added
