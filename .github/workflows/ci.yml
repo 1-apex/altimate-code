@@ -42,6 +42,39 @@ jobs:
         run: bun test
         working-directory: packages/opencode
 
+  marker-guard:
+    name: Marker Guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461 # v2
+        with:
+          bun-version: "1.3.10"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/anomalyco/opencode.git || true
+          git fetch upstream --quiet
+
+      - name: Install merge tooling deps
+        run: bun install
+        working-directory: script/upstream
+
+      - name: Check for missing altimate_change markers
+        run: |
+          # Skip strict marker enforcement for upstream merge PRs — all changes come from upstream
+          if [[ "${{ github.head_ref }}" == merge-upstream-* ]] || [[ "${{ github.head_ref }}" == upstream/merge-* ]]; then
+            echo "Upstream merge PR detected — running marker check in non-strict mode"
+            bun run script/upstream/analyze.ts --markers --base ${{ github.event.pull_request.base.ref }}
+          else
+            bun run script/upstream/analyze.ts --markers --base ${{ github.event.pull_request.base.ref }} --strict
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

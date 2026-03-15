@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Session } from "."
-import { Identifier } from "../id/id"
+import { SessionID, MessageID, PartID } from "./schema"
 import { Instance } from "../project/instance"
 import { Provider } from "../provider/provider"
 import { MessageV2 } from "./message-v2"
@@ -14,11 +14,13 @@ import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
-import { Telemetry } from "@/telemetry"
+import { Telemetry } from "@/telemetry" // altimate_change — telemetry for compaction events
+import { ModelID, ProviderID } from "@/provider/schema"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
 
+  // altimate_change start — observation masks for pruned tool outputs
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -36,7 +38,6 @@ export namespace SessionCompaction {
       return "[unserializable]"
     }
     if (str.length <= maxLen) return str
-    // Avoid slicing mid-surrogate pair by finding a safe boundary
     let end = maxLen
     const code = str.charCodeAt(end - 1)
     if (code >= 0xd800 && code <= 0xdbff) end--
@@ -60,18 +61,21 @@ export namespace SessionCompaction {
     const fingerprint = firstLine ? ` — "${firstLine}"` : ""
     return `[Tool output cleared — ${part.tool}(${args}) returned ${lines} lines, ${formatBytes(bytes)}${fingerprint}]`
   }
+  // altimate_change end
 
   export const Event = {
     Compacted: BusEvent.define(
       "session.compacted",
       z.object({
-        sessionID: z.string(),
+        sessionID: SessionID.zod,
       }),
     ),
   }
 
   const COMPACTION_BUFFER = 20_000
 
+  // altimate_change start — improved isOverflow formula with safety guard and unified headroom
+  // See PR #35 — fixes upstream bugs with limit.input models and small-context models
   export async function isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
     const config = await Config.get()
     if (config.compaction?.auto === false) return false
@@ -89,6 +93,7 @@ export namespace SessionCompaction {
     if (base <= headroom) return false
     return count >= base - headroom
   }
+  // altimate_change end
 
   export const PRUNE_MINIMUM = 20_000
   export const PRUNE_PROTECT = 40_000
@@ -98,7 +103,7 @@ export namespace SessionCompaction {
   // goes backwards through parts until there are 40_000 tokens worth of tool
   // calls. then erases output of previous tool calls. idea is to throw away old
   // tool calls that are no longer relevant.
-  export async function prune(input: { sessionID: string }) {
+  export async function prune(input: { sessionID: SessionID }) {
     const config = await Config.get()
     if (config.compaction?.prune === false) return
     log.info("pruning")
@@ -133,16 +138,19 @@ export namespace SessionCompaction {
     if (pruned > PRUNE_MINIMUM) {
       for (const part of toPrune) {
         if (part.state.status === "completed") {
+          // altimate_change start — observation masks for pruned tool outputs
           const mask = createObservationMask(part)
           part.state.time.compacted = Date.now()
           part.state.metadata = {
             ...part.state.metadata,
             observation_mask: mask,
           }
+          // altimate_change end
           await Session.updatePart(part)
         }
       }
       log.info("pruned", { count: toPrune.length })
+      // altimate_change start — telemetry for pruning
       Telemetry.track({
         type: "tool_outputs_pruned",
         timestamp: Date.now(),
@@ -150,18 +158,23 @@ export namespace SessionCompaction {
         count: toPrune.length,
         tokens_pruned: pruned,
       })
+      // altimate_change end
     }
   }
 
+  // altimate_change start — compaction attempt tracking for loop protection
   const compactionAttempts = new Map<string, number>()
+  // altimate_change end
 
   export async function process(input: {
-    parentID: string
+    parentID: MessageID
     messages: MessageV2.WithParts[]
-    sessionID: string
+    sessionID: SessionID
     abort: AbortSignal
     auto: boolean
+    overflow?: boolean
   }) {
+    // altimate_change start — telemetry, attempt tracking, and circuit breaker
     const attempt = (compactionAttempts.get(input.sessionID) ?? 0) + 1
     compactionAttempts.set(input.sessionID, attempt)
     input.abort.addEventListener("abort", () => {
@@ -174,13 +187,39 @@ export namespace SessionCompaction {
       trigger: input.auto ? "overflow_detection" : "error_recovery",
       attempt,
     })
+    if (attempt > 3) {
+      log.warn("compaction circuit breaker", { sessionID: input.sessionID, attempt })
+      return
+    }
+    // altimate_change end
     const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)!.info as MessageV2.User
+
+    let messages = input.messages
+    let replay: MessageV2.WithParts | undefined
+    if (input.overflow) {
+      const idx = input.messages.findIndex((m) => m.info.id === input.parentID)
+      for (let i = idx - 1; i >= 0; i--) {
+        const msg = input.messages[i]
+        if (msg.info.role === "user" && !msg.parts.some((p) => p.type === "compaction")) {
+          replay = msg
+          messages = input.messages.slice(0, i)
+          break
+        }
+      }
+      const hasContent =
+        replay && messages.some((m) => m.info.role === "user" && !m.parts.some((p) => p.type === "compaction"))
+      if (!hasContent) {
+        replay = undefined
+        messages = input.messages
+      }
+    }
+
     const agent = await Agent.get("compaction")
     const model = agent.model
       ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
       : await Provider.getModel(userMessage.model.providerID, userMessage.model.modelID)
     const msg = (await Session.updateMessage({
-      id: Identifier.ascending("message"),
+      id: MessageID.ascending(),
       role: "assistant",
       parentID: input.parentID,
       sessionID: input.sessionID,
@@ -232,7 +271,7 @@ When constructing the summary, try to stick to this template:
 - [What important instructions did the user give you that are relevant]
 - [If there is a plan or spec, include information about it so next agent can continue using it]
 
-## Data Context
+## Data Context (altimate_change start — data engineering context for compaction summaries)
 
 - [What warehouse(s) or database(s) are we connected to?]
 - [What schemas, tables, or columns were discovered or are relevant?]
@@ -240,6 +279,7 @@ When constructing the summary, try to stick to this template:
 - [Any lineage findings (upstream/downstream dependencies)?]
 - [Any query patterns, anti-patterns, or optimization opportunities found?]
 - [Skip this section entirely if the task is not data-engineering related]
+(altimate_change end)
 
 ## Discoveries
 
@@ -263,7 +303,7 @@ When constructing the summary, try to stick to this template:
       tools: {},
       system: [],
       messages: [
-        ...MessageV2.toModelMessages(input.messages, model),
+        ...MessageV2.toModelMessages(messages, model, { stripMedia: true }),
         {
           role: "user",
           content: [
@@ -277,52 +317,96 @@ When constructing the summary, try to stick to this template:
       model,
     })
 
+    if (result === "compact") {
+      processor.message.error = new MessageV2.ContextOverflowError({
+        message: replay
+          ? "Conversation history too large to compact - exceeds model context limit"
+          : "Session too large to compact - context exceeds model limit even after stripping media",
+      }).toObject()
+      processor.message.finish = "error"
+      await Session.updateMessage(processor.message)
+      return "stop"
+    }
+
     if (result === "continue" && input.auto) {
-      const continueMsg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
-        role: "user",
-        sessionID: input.sessionID,
-        time: {
-          created: Date.now(),
-        },
-        agent: userMessage.agent,
-        model: userMessage.model,
-      })
-      await Session.updatePart({
-        id: Identifier.ascending("part"),
-        messageID: continueMsg.id,
-        sessionID: input.sessionID,
-        type: "text",
-        synthetic: true,
-        text: "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.",
-        time: {
-          start: Date.now(),
-          end: Date.now(),
-        },
-      })
+      if (replay) {
+        const original = replay.info as MessageV2.User
+        const replayMsg = await Session.updateMessage({
+          id: MessageID.ascending(),
+          role: "user",
+          sessionID: input.sessionID,
+          time: { created: Date.now() },
+          agent: original.agent,
+          model: original.model,
+          format: original.format,
+          tools: original.tools,
+          system: original.system,
+          variant: original.variant,
+        })
+        for (const part of replay.parts) {
+          if (part.type === "compaction") continue
+          const replayPart =
+            part.type === "file" && MessageV2.isMedia(part.mime)
+              ? { type: "text" as const, text: `[Attached ${part.mime}: ${part.filename ?? "file"}]` }
+              : part
+          await Session.updatePart({
+            ...replayPart,
+            id: PartID.ascending(),
+            messageID: replayMsg.id,
+            sessionID: input.sessionID,
+          })
+        }
+      } else {
+        const continueMsg = await Session.updateMessage({
+          id: MessageID.ascending(),
+          role: "user",
+          sessionID: input.sessionID,
+          time: { created: Date.now() },
+          agent: userMessage.agent,
+          model: userMessage.model,
+        })
+        const text =
+          (input.overflow
+            ? "The previous request exceeded the provider's size limit due to large media attachments. The conversation was compacted and media files were removed from context. If the user was asking about attached images or files, explain that the attachments were too large to process and suggest they try again with smaller or fewer files.\n\n"
+            : "") +
+          "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed."
+        await Session.updatePart({
+          id: PartID.ascending(),
+          messageID: continueMsg.id,
+          sessionID: input.sessionID,
+          type: "text",
+          synthetic: true,
+          text,
+          time: {
+            start: Date.now(),
+            end: Date.now(),
+          },
+        })
+      }
     }
     if (processor.message.error) {
-      compactionAttempts.delete(input.sessionID)
+      compactionAttempts.delete(input.sessionID) // altimate_change — cleanup on error
       return "stop"
     }
     Bus.publish(Event.Compacted, { sessionID: input.sessionID })
-    compactionAttempts.delete(input.sessionID)
+    compactionAttempts.delete(input.sessionID) // altimate_change — cleanup on success
     return "continue"
   }
 
   export const create = fn(
     z.object({
-      sessionID: Identifier.schema("session"),
+      sessionID: SessionID.zod,
       agent: z.string(),
       model: z.object({
-        providerID: z.string(),
-        modelID: z.string(),
+        providerID: ProviderID.zod,
+        modelID: ModelID.zod,
       }),
       auto: z.boolean(),
+      overflow: z.boolean().optional(),
     }),
     async (input) => {
       const msg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
+        id: MessageID.ascending(),
         role: "user",
         model: input.model,
         sessionID: input.sessionID,
@@ -332,11 +416,12 @@ When constructing the summary, try to stick to this template:
         },
       })
       await Session.updatePart({
-        id: Identifier.ascending("part"),
+        id: PartID.ascending(),
         messageID: msg.id,
         sessionID: msg.sessionID,
         type: "compaction",
         auto: input.auto,
+        overflow: input.overflow,
       })
     },
   )

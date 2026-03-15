@@ -3,6 +3,7 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import { upgradeWebSocket } from "hono/bun"
 import z from "zod"
 import { Pty } from "@/pty"
+import { PtyID } from "@/pty/schema"
 import { NotFoundError } from "../../storage/db"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
@@ -13,7 +14,7 @@ export const PtyRoutes = lazy(() =>
       "/",
       describeRoute({
         summary: "List PTY sessions",
-        description: "Get a list of all active pseudo-terminal (PTY) sessions managed by OpenCode.",
+        description: "Get a list of all active pseudo-terminal (PTY) sessions managed by Altimate Code.",
         operationId: "pty.list",
         responses: {
           200: {
@@ -72,7 +73,7 @@ export const PtyRoutes = lazy(() =>
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", z.object({ ptyID: PtyID.zod })),
       async (c) => {
         const info = Pty.get(c.req.valid("param").ptyID)
         if (!info) {
@@ -99,7 +100,7 @@ export const PtyRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", z.object({ ptyID: PtyID.zod })),
       validator("json", Pty.UpdateInput),
       async (c) => {
         const info = await Pty.update(c.req.valid("param").ptyID, c.req.valid("json"))
@@ -124,7 +125,7 @@ export const PtyRoutes = lazy(() =>
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", z.object({ ptyID: PtyID.zod })),
       async (c) => {
         await Pty.remove(c.req.valid("param").ptyID)
         return c.json(true)
@@ -148,9 +149,9 @@ export const PtyRoutes = lazy(() =>
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", z.object({ ptyID: PtyID.zod })),
       upgradeWebSocket((c) => {
-        const id = c.req.param("ptyID")
+        const id = PtyID.zod.parse(c.req.param("ptyID"))
         const cursor = (() => {
           const value = c.req.query("cursor")
           if (!value) return

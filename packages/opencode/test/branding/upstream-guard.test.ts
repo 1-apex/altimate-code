@@ -4,11 +4,10 @@ import { join, resolve } from "path"
 
 const repoRoot = resolve(import.meta.dir, "..", "..", "..", "..")
 
-const mergeConfigPath = join(repoRoot, "script", "upstream", "merge-config.json")
-const mergeConfig = JSON.parse(readFileSync(mergeConfigPath, "utf-8"))
-
+// altimate_change start — config.ts is now single source of truth (merge-config.json removed)
 const brandingConfigPath = join(repoRoot, "script", "upstream", "utils", "config.ts")
 const brandingConfigText = readFileSync(brandingConfigPath, "utf-8")
+// altimate_change end
 
 const rootPkgPath = join(repoRoot, "package.json")
 const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf-8"))
@@ -38,11 +37,29 @@ describe("upstream merge guards", () => {
       "sst-env.d.ts",
       "specs/**",
       "README.*.md",
+      // Upstream project-specific configs
+      ".opencode/glossary/**",
+      ".opencode/agent/translator.md",
+      ".opencode/tool/github-triage.ts",
+      ".opencode/tool/github-triage.txt",
+      ".opencode/tool/github-pr-search.txt",
+      ".opencode/tool/github-pr-search.ts",
+      ".opencode/agent/duplicate-pr.md",
+      ".opencode/agent/triage.md",
+      ".opencode/agent/docs.md",
+      ".opencode/themes/mytheme.json",
+      ".opencode/env.d.ts",
+      ".opencode/command/rmslop.md",
+      ".opencode/command/ai-deps.md",
+      ".opencode/command/spellcheck.md",
+      ".github/workflows/storybook.yml",
+      "script/sync-zed.ts",
+      "AGENTS.md",
     ]
 
     for (const pattern of expectedSkipPatterns) {
       test(`skipFiles contains "${pattern}"`, () => {
-        expect(mergeConfig.skipFiles).toContain(pattern)
+        expect(brandingConfigText).toContain(pattern)
       })
     }
   })
@@ -52,12 +69,12 @@ describe("upstream merge guards", () => {
       "packages/altimate-engine/**",
       "script/upstream/**",
       "README.md",
-      ".github/**",
+      ".github/workflows/**",
     ]
 
     for (const pattern of expectedKeepOurs) {
       test(`keepOurs contains "${pattern}"`, () => {
-        expect(mergeConfig.keepOurs).toContain(pattern)
+        expect(brandingConfigText).toContain(pattern)
       })
     }
   })
@@ -103,7 +120,7 @@ describe("upstream merge guards", () => {
   })
 
   describe("branding rules completeness", () => {
-    test('contains "opencode.ai" domain replacement rule', () => {
+    test('contains "altimate.ai" domain replacement rule', () => {
       // In regex patterns, dots are escaped as \. so check for the regex form
       expect(brandingConfigText).toMatch(/opencode\\?\.ai/)
     })
@@ -112,8 +129,8 @@ describe("upstream merge guards", () => {
       expect(brandingConfigText).toContain("anomalyco")
     })
 
-    test('contains "OpenCode" product name replacement rule', () => {
-      expect(brandingConfigText).toContain("OpenCode")
+    test('contains "Altimate Code" product name replacement rule', () => {
+      expect(brandingConfigText).toContain("Altimate Code")
     })
 
     test('contains "altimate.ai" as replacement target', () => {
@@ -156,7 +173,7 @@ describe("upstream merge guards", () => {
 
   describe("change marker", () => {
     test('changeMarker is "altimate_change"', () => {
-      expect(mergeConfig.changeMarker).toBe("altimate_change")
+      expect(brandingConfigText).toContain('"altimate_change"')
     })
   })
 
@@ -166,9 +183,25 @@ describe("upstream merge guards", () => {
       "flake.lock",
       "sst.config.ts",
       "sst-env.d.ts",
+      "AGENTS.md",
+      "script/sync-zed.ts",
+      ".github/workflows/storybook.yml",
+      ".opencode/agent/translator.md",
+      ".opencode/agent/duplicate-pr.md",
+      ".opencode/agent/triage.md",
+      ".opencode/agent/docs.md",
+      ".opencode/themes/mytheme.json",
+      ".opencode/env.d.ts",
+      ".opencode/command/rmslop.md",
+      ".opencode/command/ai-deps.md",
+      ".opencode/command/spellcheck.md",
+      ".opencode/tool/github-triage.ts",
+      ".opencode/tool/github-triage.txt",
+      ".opencode/tool/github-pr-search.txt",
+      ".opencode/tool/github-pr-search.ts",
     ]
 
-    const forbiddenDirs = ["nix", "specs", "infra", ".signpath"]
+    const forbiddenDirs = ["nix", "specs", "infra", ".signpath", ".opencode/glossary"]
 
     for (const file of forbiddenFiles) {
       test(`${file} should not exist at repo root`, () => {
@@ -244,4 +277,35 @@ describe("upstream merge guards", () => {
       })
     }
   })
+
+  // altimate_change start — marker guard safety: ensure src/ files are never excluded
+  describe("marker guard exclusions must never bypass src/ protection", () => {
+    test("markerExcludePatterns in analyze.ts must not match packages/opencode/src/**/*.ts", () => {
+      const analyzeContent = readFileSync(join(repoRoot, "script", "upstream", "analyze.ts"), "utf-8")
+      // Extract markerExcludePatterns array
+      const match = analyzeContent.match(/markerExcludePatterns\s*=\s*\[([\s\S]*?)\]/)
+      expect(match).not.toBeNull()
+      const patternsBlock = match![1]
+
+      // These patterns must NEVER appear — they would bypass marker protection for source code
+      const dangerousPatterns = [
+        "packages/opencode/src/**",
+        "packages/opencode/src/*.ts",
+        "**/src/**",
+        "**/*.ts",
+      ]
+      for (const dangerous of dangerousPatterns) {
+        expect(patternsBlock).not.toContain(`"${dangerous}"`)
+      }
+    })
+
+    test("CI marker guard runs in strict mode for non-merge PRs", () => {
+      const ciContent = readFileSync(join(repoRoot, ".github", "workflows", "ci.yml"), "utf-8")
+      // Must have --strict flag for regular PRs
+      expect(ciContent).toContain("--strict")
+      // Must detect merge branches to skip strict
+      expect(ciContent).toContain("merge-upstream-")
+    })
+  })
+  // altimate_change end
 })

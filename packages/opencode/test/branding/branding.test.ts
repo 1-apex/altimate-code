@@ -154,9 +154,9 @@ describe("User-Agent & Version", () => {
 // ---------------------------------------------------------------------------
 describe("Upstream Branding Leak Detection", () => {
   const leakedPatterns = [
-    { pattern: /opencode\.ai/i, label: "opencode.ai domain" },
+    { pattern: /opencode\.ai/i, label: "altimate.ai domain" },
     { pattern: /anomalyco/i, label: "anomalyco GitHub org" },
-    { pattern: /opncd\.ai/i, label: "opncd.ai short domain" },
+    { pattern: /opncd\.ai/i, label: "altimate.ai short domain" },
   ]
 
   // Lines matching any of these patterns are intentionally kept (internal identifiers)
@@ -187,7 +187,7 @@ describe("Upstream Branding Leak Detection", () => {
     return false
   }
 
-  test("no opencode.ai domain references in src/ files", async () => {
+  test("no altimate.ai domain references in src/ files", async () => {
     const violations: string[] = []
     const glob = new Glob("**/*.{ts,tsx,js}")
     for await (const file of glob.scan({ cwd: srcDir })) {
@@ -223,7 +223,7 @@ describe("Upstream Branding Leak Detection", () => {
     expect(violations).toEqual([])
   })
 
-  test("no opncd.ai references in src/ files", async () => {
+  test("no altimate.ai references in src/ files", async () => {
     const violations: string[] = []
     const glob = new Glob("**/*.{ts,tsx,js}")
     for await (const file of glob.scan({ cwd: srcDir })) {
@@ -269,6 +269,51 @@ describe("Config Paths", () => {
     expect(content).toContain("altimate-code")
   })
 })
+
+// ---------------------------------------------------------------------------
+// altimate_change start — regression: catch branding leaks in package root files and workflows
+// ---------------------------------------------------------------------------
+
+describe("Package root branding", () => {
+  test("parsers-config.ts has no anomalyco references", () => {
+    const content = readText(join(pkgDir, "parsers-config.ts"))
+    const lines = content.split("\n")
+    const violations: string[] = []
+    for (let i = 0; i < lines.length; i++) {
+      if (/anomalyco/i.test(lines[i])) {
+        violations.push(`parsers-config.ts:${i + 1}: ${lines[i].trim()}`)
+      }
+    }
+    expect(violations).toEqual([])
+  })
+})
+
+describe("Workflow branding", () => {
+  test("opencode.yml uses /altimate or /ac triggers, not /opencode", () => {
+    const content = readText(join(repoRoot, ".github", "workflows", "opencode.yml"))
+    // Should have /altimate triggers
+    expect(content).toContain("/altimate")
+    // Should NOT have /opencode triggers
+    expect(content).not.toMatch(/startsWith\(.*'\/opencode'\)/)
+    expect(content).not.toMatch(/contains\(.*'\/opencode'\)/)
+  })
+
+  test("beta.yml schedule is disabled", () => {
+    const content = readText(join(repoRoot, ".github", "workflows", "beta.yml"))
+    // Schedule should be commented out
+    const lines = content.split("\n")
+    const cronLines = lines.filter((l) => l.includes("cron:"))
+    for (const line of cronLines) {
+      expect(line.trimStart().startsWith("#")).toBe(true)
+    }
+  })
+
+  test("opencode.yml model reference does not use opencode/ prefix", () => {
+    const content = readText(join(repoRoot, ".github", "workflows", "opencode.yml"))
+    expect(content).not.toContain("model: opencode/")
+  })
+})
+// altimate_change end
 
 // ---------------------------------------------------------------------------
 // 9. VSCode Extension

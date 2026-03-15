@@ -10,7 +10,7 @@
       "get": {
         "operationId": "global.health",
         "summary": "Get health",
-        "description": "Get health information about the OpenCode server.",
+        "description": "Get health information about the Altimate Code server.",
         "responses": {
           "200": {
             "description": "Health information",
@@ -45,7 +45,7 @@
       "get": {
         "operationId": "global.event",
         "summary": "Get global events",
-        "description": "Subscribe to global events from the OpenCode system using server-sent events.",
+        "description": "Subscribe to global events from the Altimate Code system using server-sent events.",
         "responses": {
           "200": {
             "description": "Event stream",
@@ -70,7 +70,7 @@
       "get": {
         "operationId": "global.config.get",
         "summary": "Get global configuration",
-        "description": "Retrieve the current global OpenCode configuration settings and preferences.",
+        "description": "Retrieve the current global Altimate Code configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Get global config info",
@@ -93,7 +93,7 @@
       "patch": {
         "operationId": "global.config.update",
         "summary": "Update global configuration",
-        "description": "Update global OpenCode configuration settings and preferences.",
+        "description": "Update global Altimate Code configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Successfully updated global config",
@@ -137,7 +137,7 @@
       "post": {
         "operationId": "global.dispose",
         "summary": "Dispose instance",
-        "description": "Clean up and dispose all OpenCode instances, releasing all resources.",
+        "description": "Clean up and dispose all Altimate Code instances, releasing all resources.",
         "responses": {
           "200": {
             "description": "Global disposed",
@@ -275,7 +275,7 @@
           }
         ],
         "summary": "List all projects",
-        "description": "Get a list of projects that have been opened with OpenCode.",
+        "description": "Get a list of projects that have been opened with Altimate Code.",
         "responses": {
           "200": {
             "description": "List of projects",
@@ -319,7 +319,7 @@
           }
         ],
         "summary": "Get current project",
-        "description": "Retrieve the currently active project that OpenCode is working with.",
+        "description": "Retrieve the currently active project that Altimate Code is working with.",
         "responses": {
           "200": {
             "description": "Current project information",
@@ -336,6 +336,47 @@
           {
             "lang": "js",
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.current({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/project/git/init": {
+      "post": {
+        "operationId": "project.initGit",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Initialize git repository",
+        "description": "Create a git repository for the current project and return the refreshed project info.",
+        "responses": {
+          "200": {
+            "description": "Project information after git initialization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.initGit({\n  ...\n})"
           }
         ]
       }
@@ -466,7 +507,7 @@
           }
         ],
         "summary": "List PTY sessions",
-        "description": "Get a list of all active pseudo-terminal (PTY) sessions managed by OpenCode.",
+        "description": "Get a list of all active pseudo-terminal (PTY) sessions managed by Altimate Code.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -596,7 +637,8 @@
             "in": "path",
             "name": "ptyID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^pty.*"
             },
             "required": true
           }
@@ -653,7 +695,8 @@
             "in": "path",
             "name": "ptyID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^pty.*"
             },
             "required": true
           }
@@ -736,7 +779,8 @@
             "in": "path",
             "name": "ptyID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^pty.*"
             },
             "required": true
           }
@@ -795,7 +839,8 @@
             "in": "path",
             "name": "ptyID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^pty.*"
             },
             "required": true
           }
@@ -852,7 +897,7 @@
           }
         ],
         "summary": "Get configuration",
-        "description": "Retrieve the current OpenCode configuration settings and preferences.",
+        "description": "Retrieve the current Altimate Code configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Get config info",
@@ -891,7 +936,7 @@
           }
         ],
         "summary": "Update configuration",
-        "description": "Update OpenCode configuration settings and preferences.",
+        "description": "Update Altimate Code configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Successfully updated config",
@@ -1587,7 +1632,7 @@
           }
         ],
         "summary": "List sessions",
-        "description": "Get a list of all OpenCode sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
+        "description": "Get a list of all Altimate Code sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -1711,7 +1756,7 @@
           }
         ],
         "summary": "List sessions",
-        "description": "Get a list of all OpenCode sessions, sorted by most recently updated.",
+        "description": "Get a list of all Altimate Code sessions, sorted by most recently updated.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -1753,7 +1798,7 @@
           }
         ],
         "summary": "Create session",
-        "description": "Create a new OpenCode session for interacting with AI assistants and managing conversations.",
+        "description": "Create a new Altimate Code session for interacting with AI assistants and managing conversations.",
         "responses": {
           "200": {
             "description": "Successfully created session",
@@ -1791,6 +1836,10 @@
                   },
                   "permission": {
                     "$ref": "#/components/schemas/PermissionRuleset"
+                  },
+                  "workspaceID": {
+                    "type": "string",
+                    "pattern": "^wrk.*"
                   }
                 }
               }
@@ -1891,7 +1940,7 @@
           }
         ],
         "summary": "Get session",
-        "description": "Retrieve detailed information about a specific OpenCode session.",
+        "description": "Retrieve detailed information about a specific Altimate Code session.",
         "tags": ["Session"],
         "responses": {
           "200": {
@@ -2021,7 +2070,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           }
@@ -2186,10 +2236,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Get session todos",
@@ -2259,10 +2309,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Initialize session",
@@ -2416,7 +2466,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           }
@@ -2485,7 +2536,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           }
@@ -2683,10 +2735,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Summarize session",
@@ -2775,16 +2827,26 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Maximum number of messages to return"
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2865,10 +2927,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Send message",
@@ -3019,19 +3081,19 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "messageID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^msg.*"
             },
-            "required": true,
-            "description": "Message ID"
+            "required": true
           }
         ],
         "summary": "Get message",
@@ -3108,19 +3170,19 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "messageID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^msg.*"
             },
-            "required": true,
-            "description": "Message ID"
+            "required": true
           }
         ],
         "summary": "Delete message",
@@ -3187,28 +3249,28 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "messageID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^msg.*"
             },
-            "required": true,
-            "description": "Message ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "partID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^prt.*"
             },
-            "required": true,
-            "description": "Part ID"
+            "required": true
           }
         ],
         "description": "Delete a part from a message",
@@ -3272,28 +3334,28 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "messageID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^msg.*"
             },
-            "required": true,
-            "description": "Message ID"
+            "required": true
           },
           {
             "in": "path",
             "name": "partID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^prt.*"
             },
-            "required": true,
-            "description": "Part ID"
+            "required": true
           }
         ],
         "description": "Update a part in a message",
@@ -3368,10 +3430,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Send async message",
@@ -3503,10 +3565,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Send command",
@@ -3588,7 +3650,8 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^prt.*"
                             },
                             "type": {
                               "type": "string",
@@ -3648,10 +3711,10 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
-            "required": true,
-            "description": "Session ID"
+            "required": true
           }
         ],
         "summary": "Run shell command",
@@ -3748,7 +3811,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           }
@@ -3837,7 +3901,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           }
@@ -3906,7 +3971,8 @@
             "in": "path",
             "name": "sessionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^ses.*"
             },
             "required": true
           },
@@ -3914,7 +3980,8 @@
             "in": "path",
             "name": "permissionID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^per.*"
             },
             "required": true
           }
@@ -4000,7 +4067,8 @@
             "in": "path",
             "name": "requestID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^per.*"
             },
             "required": true
           }
@@ -4176,7 +4244,8 @@
             "in": "path",
             "name": "requestID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^que.*"
             },
             "required": true
           }
@@ -4264,7 +4333,8 @@
             "in": "path",
             "name": "requestID",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^que.*"
             },
             "required": true
           }
@@ -6261,7 +6331,7 @@
                   "sessionID": {
                     "description": "Session ID to navigate to",
                     "type": "string",
-                    "pattern": "^ses"
+                    "pattern": "^ses.*"
                   }
                 },
                 "required": ["sessionID"]
@@ -6393,7 +6463,7 @@
           }
         ],
         "summary": "Dispose instance",
-        "description": "Clean up and dispose the current OpenCode instance, releasing all resources.",
+        "description": "Clean up and dispose the current Altimate Code instance, releasing all resources.",
         "responses": {
           "200": {
             "description": "Instance disposed",
@@ -6434,7 +6504,7 @@
           }
         ],
         "summary": "Get paths",
-        "description": "Retrieve the current working directory and related path information for the OpenCode instance.",
+        "description": "Retrieve the current working directory and related path information for the Altimate Code instance.",
         "responses": {
           "200": {
             "description": "Path",
@@ -6516,7 +6586,7 @@
           }
         ],
         "summary": "List commands",
-        "description": "Get a list of all available commands in the OpenCode system.",
+        "description": "Get a list of all available commands in the Altimate Code system.",
         "responses": {
           "200": {
             "description": "List of commands",
@@ -6644,7 +6714,7 @@
           }
         ],
         "summary": "List agents",
-        "description": "Get a list of all available AI agents in the OpenCode system.",
+        "description": "Get a list of all available AI agents in the Altimate Code system.",
         "responses": {
           "200": {
             "description": "List of agents",
@@ -6688,7 +6758,7 @@
           }
         ],
         "summary": "List skills",
-        "description": "Get a list of all available skills in the OpenCode system.",
+        "description": "Get a list of all available skills in the Altimate Code system.",
         "responses": {
           "200": {
             "description": "List of skills",
@@ -7150,10 +7220,12 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "role": {
             "type": "string",
@@ -7390,10 +7462,12 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "role": {
             "type": "string",
@@ -7437,7 +7511,8 @@
             ]
           },
           "parentID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "modelID": {
             "type": "string"
@@ -7562,10 +7637,12 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               }
             },
             "required": ["sessionID", "messageID"]
@@ -7577,13 +7654,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -7624,13 +7704,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -7667,13 +7750,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -7832,13 +7918,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8025,13 +8114,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8060,13 +8152,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8082,13 +8177,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8140,13 +8238,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8162,13 +8263,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8190,13 +8294,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8231,13 +8338,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8265,13 +8375,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "sessionID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^ses.*"
           },
           "messageID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^msg.*"
           },
           "type": {
             "type": "string",
@@ -8356,13 +8469,16 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "partID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^prt.*"
               },
               "field": {
                 "type": "string"
@@ -8387,13 +8503,16 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "partID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^prt.*"
               }
             },
             "required": ["sessionID", "messageID", "partID"]
@@ -8438,7 +8557,8 @@
             "type": "object",
             "properties": {
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "callID": {
                 "type": "string"
@@ -8473,10 +8593,12 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "requestID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^per.*"
               },
               "reply": {
                 "type": "string",
@@ -8542,7 +8664,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "status": {
                 "$ref": "#/components/schemas/SessionStatus"
@@ -8564,7 +8687,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               }
             },
             "required": ["sessionID"]
@@ -8637,7 +8761,8 @@
             "type": "object",
             "properties": {
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "callID": {
                 "type": "string"
@@ -8678,10 +8803,12 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "requestID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^que.*"
               },
               "answers": {
                 "type": "array",
@@ -8706,10 +8833,12 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "requestID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^que.*"
               }
             },
             "required": ["sessionID", "requestID"]
@@ -8728,7 +8857,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               }
             },
             "required": ["sessionID"]
@@ -8800,7 +8930,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "todos": {
                 "type": "array",
@@ -8921,7 +9052,7 @@
               "sessionID": {
                 "description": "Session ID to navigate to",
                 "type": "string",
-                "pattern": "^ses"
+                "pattern": "^ses.*"
               }
             },
             "required": ["sessionID"]
@@ -9039,7 +9170,8 @@
             "type": "string"
           },
           "workspaceID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^wrk.*"
           },
           "directory": {
             "type": "string"
@@ -9109,10 +9241,12 @@
             "type": "object",
             "properties": {
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "partID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^prt.*"
               },
               "snapshot": {
                 "type": "string"
@@ -9194,7 +9328,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "diff": {
                 "type": "array",
@@ -9219,7 +9354,8 @@
             "type": "object",
             "properties": {
               "sessionID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^ses.*"
               },
               "error": {
                 "anyOf": [
@@ -10067,6 +10203,12 @@
                     "const": false
                   }
                 ]
+              },
+              "chunkTimeout": {
+                "description": "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
               }
             },
             "additionalProperties": {}
@@ -10198,7 +10340,7 @@
             "$ref": "#/components/schemas/ServerConfig"
           },
           "command": {
-            "description": "Command configuration, see https://opencode.ai/docs/commands",
+            "description": "Command configuration, see https://altimate.ai/docs/commands",
             "type": "object",
             "propertyNames": {
               "type": "string"
@@ -10332,7 +10474,7 @@
             }
           },
           "agent": {
-            "description": "Agent configuration, see https://opencode.ai/docs/agents",
+            "description": "Agent configuration, see https://altimate.ai/docs/agents",
             "type": "object",
             "properties": {
               "plan": {
@@ -11118,7 +11260,8 @@
             "type": "string"
           },
           "workspaceID": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^wrk.*"
           },
           "directory": {
             "type": "string"
@@ -11188,10 +11331,12 @@
             "type": "object",
             "properties": {
               "messageID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^msg.*"
               },
               "partID": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^prt.*"
               },
               "snapshot": {
                 "type": "string"
@@ -11240,7 +11385,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "type": {
             "type": "string",
@@ -11281,7 +11427,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "type": {
             "type": "string",
@@ -11306,7 +11453,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "type": {
             "type": "string",
@@ -11341,7 +11489,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^prt.*"
           },
           "type": {
             "type": "string",

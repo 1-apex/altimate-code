@@ -1,4 +1,4 @@
-import { Control } from "@/control"
+import { Account } from "@/account"
 import { Config } from "@/config/config"
 import { Installation } from "@/installation"
 import { Log } from "@/util/log"
@@ -233,7 +233,7 @@ export namespace Telemetry {
         duration_ms: number
         cost: number
         compactions: number
-        outcome: "completed" | "abandoned" | "error"
+        outcome: "completed" | "abandoned" | "aborted" | "error"
       }
     | {
         type: "error_recovered"
@@ -426,7 +426,7 @@ export namespace Telemetry {
       }
       appInsights = cfg
       try {
-        const account = Control.account()
+        const account = Account.active()
         if (account) {
           userEmail = createHash("sha256").update(account.email.toLowerCase().trim()).digest("hex")
         }

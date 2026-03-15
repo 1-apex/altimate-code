@@ -1,18 +1,34 @@
 import { test, expect } from "bun:test"
-import { parseShareUrl, transformShareData, type ShareData } from "../../src/cli/cmd/import"
+import {
+  parseShareUrl,
+  shouldAttachShareAuthHeaders,
+  transformShareData,
+  type ShareData,
+} from "../../src/cli/cmd/import"
 
 // parseShareUrl tests
 test("parses valid share URLs", () => {
-  expect(parseShareUrl("https://opncd.ai/share/Jsj3hNIW")).toBe("Jsj3hNIW")
+  expect(parseShareUrl("https://altimate.ai/share/Jsj3hNIW")).toBe("Jsj3hNIW")
   expect(parseShareUrl("https://custom.example.com/share/abc123")).toBe("abc123")
   expect(parseShareUrl("http://localhost:3000/share/test_id-123")).toBe("test_id-123")
 })
 
 test("rejects invalid URLs", () => {
-  expect(parseShareUrl("https://opncd.ai/s/Jsj3hNIW")).toBeNull() // legacy format
-  expect(parseShareUrl("https://opncd.ai/share/")).toBeNull()
-  expect(parseShareUrl("https://opncd.ai/share/id/extra")).toBeNull()
+  expect(parseShareUrl("https://altimate.ai/s/Jsj3hNIW")).toBeNull() // legacy format
+  expect(parseShareUrl("https://altimate.ai/share/")).toBeNull()
+  expect(parseShareUrl("https://altimate.ai/share/id/extra")).toBeNull()
   expect(parseShareUrl("not-a-url")).toBeNull()
+})
+
+test("only attaches share auth headers for same-origin URLs", () => {
+  expect(shouldAttachShareAuthHeaders("https://control.example.com/share/abc", "https://control.example.com")).toBe(
+    true,
+  )
+  expect(shouldAttachShareAuthHeaders("https://other.example.com/share/abc", "https://control.example.com")).toBe(false)
+  expect(shouldAttachShareAuthHeaders("https://control.example.com:443/share/abc", "https://control.example.com")).toBe(
+    true,
+  )
+  expect(shouldAttachShareAuthHeaders("not-a-url", "https://control.example.com")).toBe(false)
 })
 
 // transformShareData tests

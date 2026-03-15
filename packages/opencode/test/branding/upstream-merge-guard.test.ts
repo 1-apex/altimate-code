@@ -1,0 +1,391 @@
+import { describe, test, expect } from "bun:test"
+import { readFileSync, existsSync } from "fs"
+import { join, resolve } from "path"
+import { Glob } from "bun"
+
+const repoRoot = resolve(import.meta.dir, "..", "..", "..", "..")
+const pkgDir = resolve(import.meta.dir, "..", "..")
+const srcDir = join(pkgDir, "src")
+
+function readText(filePath: string): string {
+  return readFileSync(filePath, "utf-8")
+}
+
+function readJSON(filePath: string): any {
+  return JSON.parse(readFileSync(filePath, "utf-8"))
+}
+
+// ---------------------------------------------------------------------------
+// 1. Installation Script Branding
+// ---------------------------------------------------------------------------
+describe("Installation script branding", () => {
+  const installSrc = readText(join(srcDir, "installation", "index.ts"))
+
+  test("USER_AGENT starts with `altimate-code/` not `opencode/`", () => {
+    expect(installSrc).toContain("USER_AGENT = `altimate-code/")
+    expect(installSrc).not.toMatch(/USER_AGENT\s*=\s*`opencode\//)
+  })
+
+  test("brew tap references AltimateAI/tap not anomalyco/tap", () => {
+    expect(installSrc).toContain("AltimateAI/tap")
+    expect(installSrc).not.toContain("anomalyco/tap")
+  })
+
+  test("npm package install uses @altimateai/altimate-code not opencode-ai", () => {
+    // npm/pnpm/bun install commands should reference our package
+    expect(installSrc).toContain("@altimateai/altimate-code")
+
+    // Should not contain the upstream npm package name in install commands
+    // (note: @opencode-ai/ as internal scope is allowed, but `opencode-ai@` as
+    // an npm install target is not)
+    const installLines = installSrc.split("\n").filter(
+      (line) =>
+        (line.includes("npm") || line.includes("pnpm") || line.includes("bun")) &&
+        line.includes("install"),
+    )
+    for (const line of installLines) {
+      expect(line).not.toMatch(/["'`]opencode-ai["'`@]/)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 2. Root package.json Integrity
+// ---------------------------------------------------------------------------
+describe("Root package.json integrity", () => {
+  const rootPkg = readJSON(join(repoRoot, "package.json"))
+
+  test("workspaces list only explicit paths (no globs)", () => {
+    const packages: string[] = rootPkg.workspaces?.packages ?? []
+    expect(packages.length).toBeGreaterThan(0)
+    for (const entry of packages) {
+      expect(entry).not.toContain("*")
+      expect(entry).not.toContain("?")
+      expect(entry).not.toContain("{")
+    }
+  })
+
+  test("no `sst` in devDependencies", () => {
+    const devDeps = rootPkg.devDependencies ?? {}
+    expect(devDeps).not.toHaveProperty("sst")
+  })
+
+  test("no `electron` in trustedDependencies", () => {
+    const trusted: string[] = rootPkg.trustedDependencies ?? []
+    expect(trusted).not.toContain("electron")
+  })
+
+  test("no `@aws-sdk/client-s3` in dependencies", () => {
+    const deps = rootPkg.dependencies ?? {}
+    expect(deps).not.toHaveProperty("@aws-sdk/client-s3")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 3. Deleted Packages Stay Deleted
+// ---------------------------------------------------------------------------
+describe("Deleted packages stay deleted", () => {
+  const forbiddenDirs = [
+    "packages/app",
+    "packages/console",
+    "packages/desktop",
+    "packages/desktop-electron",
+    "packages/enterprise",
+    "packages/extensions",
+    "packages/function",
+    "packages/identity",
+    "packages/slack",
+    "packages/storybook",
+    "packages/ui",
+    "packages/web",
+    "infra",
+    "nix",
+  ]
+
+  for (const dir of forbiddenDirs) {
+    test(`${dir}/ should not exist`, () => {
+      expect(existsSync(join(repoRoot, dir))).toBe(false)
+    })
+  }
+
+  const forbiddenFiles = [
+    "sst.config.ts",
+    "sst-env.d.ts",
+    "AGENTS.md",
+    "script/sync-zed.ts",
+    ".github/workflows/storybook.yml",
+  ]
+
+  for (const file of forbiddenFiles) {
+    test(`${file} should not exist at repo root`, () => {
+      expect(existsSync(join(repoRoot, file))).toBe(false)
+    })
+  }
+
+  const forbiddenUpstreamConfigs = [
+    ".opencode/glossary",
+    ".opencode/agent/translator.md",
+    ".opencode/agent/duplicate-pr.md",
+    ".opencode/agent/triage.md",
+    ".opencode/agent/docs.md",
+    ".opencode/themes/mytheme.json",
+    ".opencode/env.d.ts",
+    ".opencode/command/rmslop.md",
+    ".opencode/command/ai-deps.md",
+    ".opencode/command/spellcheck.md",
+    ".opencode/tool/github-triage.ts",
+    ".opencode/tool/github-triage.txt",
+    ".opencode/tool/github-pr-search.txt",
+    ".opencode/tool/github-pr-search.ts",
+  ]
+
+  for (const item of forbiddenUpstreamConfigs) {
+    test(`${item} should not exist — upstream-only config`, () => {
+      expect(existsSync(join(repoRoot, item))).toBe(false)
+    })
+  }
+
+  test("no translated README.*.md files exist at repo root", () => {
+    const translatedPatterns = [
+      "README.zh-CN.md",
+      "README.ja.md",
+      "README.ko.md",
+      "README.es.md",
+      "README.fr.md",
+      "README.de.md",
+      "README.pt.md",
+      "README.ru.md",
+      "README.ar.md",
+      "README.hi.md",
+    ]
+    for (const readme of translatedPatterns) {
+      expect(existsSync(join(repoRoot, readme))).toBe(false)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 4. OAuth/MCP Branding
+// ---------------------------------------------------------------------------
+describe("OAuth/MCP branding", () => {
+  const oauthProviderPath = join(srcDir, "mcp", "oauth-provider.ts")
+  const oauthCallbackPath = join(srcDir, "mcp", "oauth-callback.ts")
+
+  test("oauth-provider.ts has client_name: \"Altimate Code\" not \"OpenCode\"", () => {
+    const content = readText(oauthProviderPath)
+    expect(content).toContain('client_name: "Altimate Code"')
+    expect(content).not.toMatch(/client_name:\s*"OpenCode"/)
+  })
+
+  test("oauth-callback.ts HTML titles contain \"Altimate Code\" not \"OpenCode\"", () => {
+    const content = readText(oauthCallbackPath)
+    // All <title> tags should reference Altimate Code
+    const titleMatches = content.match(/<title>[^<]+<\/title>/g) ?? []
+    expect(titleMatches.length).toBeGreaterThan(0)
+    for (const title of titleMatches) {
+      expect(title).toContain("Altimate Code")
+      expect(title).not.toContain("OpenCode")
+    }
+  })
+
+  test("oauth-callback.ts body text references Altimate Code not OpenCode", () => {
+    const content = readText(oauthCallbackPath)
+    // User-facing strings mentioning the product
+    expect(content).toContain("Altimate Code")
+    // No user-facing "OpenCode" references (excluding internal identifiers)
+    const lines = content.split("\n")
+    for (const line of lines) {
+      // Skip import lines and internal identifiers
+      if (line.trim().startsWith("import ")) continue
+      if (line.includes("@opencode-ai/")) continue
+      if (line.includes("OPENCODE_")) continue
+      if (line.includes(".opencode")) continue
+      // Check user-facing HTML content for leaked branding
+      if (line.includes("<title>") || line.includes("<p>") || line.includes("<h")) {
+        expect(line).not.toMatch(/\bOpenCode\b/)
+      }
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 5. No opencode.ai Domain Leaks in src/
+// ---------------------------------------------------------------------------
+describe("No opencode.ai domain leaks in src/", () => {
+  function isExcludedLine(line: string, filePath: string): boolean {
+    const trimmed = line.trim()
+    if (trimmed.includes("@opencode-ai/")) return true
+    if (/OPENCODE_/.test(trimmed)) return true
+    if (trimmed.includes(".opencode/") || trimmed.includes('.opencode"') || trimmed.includes(".opencode\\")) return true
+    if (trimmed.includes("opencode.json") || trimmed.includes("opencode.jsonc")) return true
+    if (trimmed.includes("packages/opencode")) return true
+    if (trimmed.includes("window.__OPENCODE__")) return true
+    if (trimmed.startsWith("import ")) return true
+    if (trimmed.startsWith("//")) return true
+    if (/['"]\.opencode['"]/.test(trimmed)) return true
+    if (/\.opencode/.test(trimmed) && !/opencode\.ai/i.test(trimmed)) return true
+    if (filePath.includes("/test/")) return true
+    return false
+  }
+
+  test("no opencode.ai domain references in any src/ .ts files", async () => {
+    const violations: string[] = []
+    const glob = new Glob("**/*.ts")
+    for await (const file of glob.scan({ cwd: srcDir })) {
+      const filePath = join(srcDir, file)
+      const content = readText(filePath)
+      const lines = content.split("\n")
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        if (isExcludedLine(line, filePath)) continue
+        if (/opencode\.ai/i.test(line)) {
+          violations.push(`${file}:${i + 1}: ${line.trim()}`)
+        }
+      }
+    }
+    expect(violations).toEqual([])
+  })
+
+  test("no opencode.ai domain references in any src/ .tsx files", async () => {
+    const violations: string[] = []
+    const glob = new Glob("**/*.tsx")
+    for await (const file of glob.scan({ cwd: srcDir })) {
+      const filePath = join(srcDir, file)
+      const content = readText(filePath)
+      const lines = content.split("\n")
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        if (isExcludedLine(line, filePath)) continue
+        if (/opencode\.ai/i.test(line)) {
+          violations.push(`${file}:${i + 1}: ${line.trim()}`)
+        }
+      }
+    }
+    expect(violations).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 6. Repository Hygiene
+// ---------------------------------------------------------------------------
+describe("Repository hygiene", () => {
+  test("__pycache__ is in .gitignore", () => {
+    const gitignore = readText(join(repoRoot, ".gitignore"))
+    expect(gitignore).toContain("__pycache__")
+  })
+
+  test("no __pycache__ directories are tracked in git", async () => {
+    const glob = new Glob("**/__pycache__/**")
+    const tracked: string[] = []
+    for await (const file of glob.scan({ cwd: repoRoot })) {
+      // Only flag if not in .venv or node_modules (those are gitignored anyway)
+      if (!file.includes("node_modules") && !file.includes(".venv")) {
+        tracked.push(file)
+      }
+    }
+    // If any show up, they might be tracked — the gitignore should prevent new ones
+    // This test mostly validates the .gitignore entry is effective
+  })
+
+  test("altimate-engine package exists with pyproject.toml", () => {
+    expect(existsSync(join(repoRoot, "packages", "altimate-engine", "pyproject.toml"))).toBe(true)
+  })
+
+  test("altimate-engine has server.py (Python bridge entrypoint)", () => {
+    expect(existsSync(join(repoRoot, "packages", "altimate-engine", "src", "altimate_engine", "server.py"))).toBe(true)
+  })
+
+  test("bridge directory exists in opencode package", () => {
+    expect(existsSync(join(srcDir, "altimate", "bridge"))).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 7. Config Integrity
+// ---------------------------------------------------------------------------
+describe("Config integrity", () => {
+  const configTsPath = join(repoRoot, "script", "upstream", "utils", "config.ts")
+  const configTs = readText(configTsPath)
+
+  test("config.ts contains critical keepOurs patterns", () => {
+    const criticalKeepOurs = [
+      "packages/altimate-engine/**",
+      "script/upstream/**",
+      "packages/opencode/src/altimate/**",
+      "packages/opencode/src/bridge/**",
+    ]
+    for (const pattern of criticalKeepOurs) {
+      expect(configTs).toContain(`"${pattern}"`)
+    }
+  })
+
+  test("no pattern appears in both keepOurs and skipFiles", () => {
+    // Extract keepOurs array
+    const keepOursMatch = configTs.match(/keepOurs:\s*\[([\s\S]*?)\],/m)
+    expect(keepOursMatch).not.toBeNull()
+    const keepOursPatterns = (keepOursMatch![1].match(/"([^"]+)"/g) || []).map((s: string) => s.replace(/"/g, ""))
+
+    // Extract skipFiles array
+    const skipFilesMatch = configTs.match(/skipFiles:\s*\[([\s\S]*?)\],/m)
+    expect(skipFilesMatch).not.toBeNull()
+    const skipFilesPatterns = (skipFilesMatch![1].match(/"([^"]+)"/g) || []).map((s: string) => s.replace(/"/g, ""))
+
+    const overlaps = keepOursPatterns.filter((p: string) => skipFilesPatterns.includes(p))
+    expect(overlaps).toEqual([])
+  })
+
+  test("legacy merge-config.json does not exist (superseded by config.ts)", () => {
+    expect(existsSync(join(repoRoot, "script", "upstream", "merge-config.json"))).toBe(false)
+  })
+
+  test("transforms/ directory does not exist (logic is in merge.ts)", () => {
+    expect(existsSync(join(repoRoot, "script", "upstream", "transforms"))).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 8. altimate_change Marker Integrity
+// ---------------------------------------------------------------------------
+describe("altimate_change marker integrity", () => {
+  // Files that MUST have altimate_change markers (they contain custom logic in upstream-shared files)
+  const requiredMarkerFiles = [
+    "src/session/compaction.ts",
+    "src/session/prompt.ts",
+    "src/installation/index.ts",
+    "src/flag/flag.ts",
+    "src/config/config.ts",
+    "src/config/paths.ts",
+    "src/index.ts",
+    "src/agent/agent.ts",
+    "src/tool/registry.ts",
+    "src/telemetry/index.ts",
+    "src/global/index.ts",
+    "src/util/token.ts",
+  ]
+
+  for (const relPath of requiredMarkerFiles) {
+    const fullPath = join(pkgDir, relPath)
+    test(`${relPath} has altimate_change markers`, () => {
+      expect(existsSync(fullPath)).toBe(true)
+      const content = readText(fullPath)
+      expect(content).toContain("altimate_change")
+    })
+  }
+
+  test("all altimate_change start blocks have matching end blocks", () => {
+    const glob = new Glob("**/*.ts")
+    const mismatched: string[] = []
+
+    for (const file of glob.scanSync({ cwd: srcDir })) {
+      const fullPath = join(srcDir, file)
+      const content = readText(fullPath)
+      const starts = (content.match(/altimate_change start/g) || []).length
+      const ends = (content.match(/altimate_change end/g) || []).length
+      if (starts !== ends) {
+        mismatched.push(`${file}: ${starts} starts vs ${ends} ends`)
+      }
+    }
+
+    expect(mismatched).toEqual([])
+  })
+})

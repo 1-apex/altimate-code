@@ -42,13 +42,15 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()
     await $`git config core.fsmonitor false`.cwd(dirpath).quiet()
+    await $`git config user.email "test@opencode.test"`.cwd(dirpath).quiet()
+    await $`git config user.name "Test"`.cwd(dirpath).quiet()
     await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).quiet()
   }
   if (options?.config) {
     await Bun.write(
       path.join(dirpath, "opencode.json"),
       JSON.stringify({
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         ...options.config,
       }),
     )

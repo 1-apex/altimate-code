@@ -4,6 +4,9 @@ import { APICallError } from "ai"
 import { setTimeout as sleep } from "node:timers/promises"
 import { SessionRetry } from "../../src/session/retry"
 import { MessageV2 } from "../../src/session/message-v2"
+import { ProviderID } from "../../src/provider/schema"
+
+const providerID = ProviderID.make("test")
 
 function apiError(headers?: Record<string, string>): MessageV2.APIError {
   return new MessageV2.APIError({
@@ -173,7 +176,7 @@ describe("session.message-v2.fromError", () => {
         .then((res) => res.text())
         .catch((e) => e)
 
-      const result = MessageV2.fromError(error, { providerID: "test" })
+      const result = MessageV2.fromError(error, { providerID })
 
       expect(MessageV2.APIError.isInstance(result)).toBe(true)
       expect((result as MessageV2.APIError).data.isRetryable).toBe(true)
@@ -198,7 +201,7 @@ describe("session.message-v2.fromError", () => {
 
   test("converts token refresh failure to ProviderAuthError", () => {
     const error = new Error("Anthropic OAuth token refresh failed (HTTP 401). Try re-authenticating: altimate-code auth login anthropic")
-    const result = MessageV2.fromError(error, { providerID: "anthropic" })
+    const result = MessageV2.fromError(error, { providerID: "anthropic" as any })
 
     expect(result.name).toBe("ProviderAuthError")
     expect((result as any).data.providerID).toBe("anthropic")
@@ -207,7 +210,7 @@ describe("session.message-v2.fromError", () => {
 
   test("converts codex token refresh failure to ProviderAuthError", () => {
     const error = new Error("Codex OAuth token refresh failed (HTTP 403). Try re-authenticating: altimate-code auth login openai")
-    const result = MessageV2.fromError(error, { providerID: "openai" })
+    const result = MessageV2.fromError(error, { providerID: "openai" as any })
 
     expect(result.name).toBe("ProviderAuthError")
     expect((result as any).data.providerID).toBe("openai")
@@ -215,7 +218,7 @@ describe("session.message-v2.fromError", () => {
 
   test("provides descriptive message for generic Error with no message", () => {
     const error = new Error()
-    const result = MessageV2.fromError(error, { providerID: "test" })
+    const result = MessageV2.fromError(error, { providerID: "test" as any })
 
     expect(result.name).toBe("UnknownError")
     // Should not be just "Error" — should include stack or context
@@ -225,7 +228,7 @@ describe("session.message-v2.fromError", () => {
 
   test("provides descriptive message for TypeError with no message", () => {
     const error = new TypeError()
-    const result = MessageV2.fromError(error, { providerID: "test" })
+    const result = MessageV2.fromError(error, { providerID: "test" as any })
 
     expect(result.name).toBe("UnknownError")
     expect((result as any).data.message).toContain("TypeError")
@@ -241,7 +244,7 @@ describe("session.message-v2.fromError", () => {
       responseBody: '{"error":"boom"}',
       isRetryable: false,
     })
-    const result = MessageV2.fromError(error, { providerID: "openai" }) as MessageV2.APIError
+    const result = MessageV2.fromError(error, { providerID: ProviderID.make("openai") }) as MessageV2.APIError
     expect(result.data.isRetryable).toBe(true)
   })
 })

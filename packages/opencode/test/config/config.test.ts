@@ -1,13 +1,16 @@
-import { test, expect, describe, mock, afterEach } from "bun:test"
+import { test, expect, describe, mock, afterEach, spyOn } from "bun:test"
 import { Config } from "../../src/config/config"
 import { Instance } from "../../src/project/instance"
 import { Auth } from "../../src/auth"
+import { AccessToken, Account, AccountID, OrgID } from "../../src/account"
 import { tmpdir } from "../fixture/fixture"
 import path from "path"
 import fs from "fs/promises"
 import { pathToFileURL } from "url"
 import { Global } from "../../src/global"
+import { ProjectID } from "../../src/project/schema"
 import { Filesystem } from "../../src/util/filesystem"
+import { BunProc } from "../../src/bun"
 
 // Get managed config directory from environment (set in preload.ts)
 const managedConfigDir = process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR!
@@ -25,6 +28,34 @@ async function writeConfig(dir: string, config: object, name = "opencode.json") 
   await Filesystem.write(path.join(dir, name), JSON.stringify(config))
 }
 
+async function check(map: (dir: string) => string) {
+  if (process.platform !== "win32") return
+  await using globalTmp = await tmpdir()
+  await using tmp = await tmpdir({ git: true, config: { snapshot: true } })
+  const prev = Global.Path.config
+  ;(Global.Path as { config: string }).config = globalTmp.path
+  Config.global.reset()
+  try {
+    await writeConfig(globalTmp.path, {
+      $schema: "https://altimate.ai/config.json",
+      snapshot: false,
+    })
+    await Instance.provide({
+      directory: map(tmp.path),
+      fn: async () => {
+        const cfg = await Config.get()
+        expect(cfg.snapshot).toBe(true)
+        expect(Instance.directory).toBe(Filesystem.resolve(tmp.path))
+        expect(Instance.project.id).not.toBe(ProjectID.global)
+      },
+    })
+  } finally {
+    await Instance.disposeAll()
+    ;(Global.Path as { config: string }).config = prev
+    Config.global.reset()
+  }
+}
+
 test("loads config with defaults when no files exist", async () => {
   await using tmp = await tmpdir()
   await Instance.provide({
@@ -40,7 +71,7 @@ test("loads JSON config file", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         model: "test/model",
         username: "testuser",
       })
@@ -56,11 +87,28 @@ test("loads JSON config file", async () => {
   })
 })
 
+test("loads project config from Git Bash and MSYS2 paths on Windows", async () => {
+  // Git Bash and MSYS2 both use /<drive>/... paths on Windows.
+  await check((dir) => {
+    const drive = dir[0].toLowerCase()
+    const rest = dir.slice(2).replaceAll("\\", "/")
+    return `/${drive}${rest}`
+  })
+})
+
+test("loads project config from Cygwin paths on Windows", async () => {
+  await check((dir) => {
+    const drive = dir[0].toLowerCase()
+    const rest = dir.slice(2).replaceAll("\\", "/")
+    return `/cygdrive/${drive}${rest}`
+  })
+})
+
 test("ignores legacy tui keys in opencode config", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         model: "test/model",
         theme: "legacy",
         tui: { scroll_speed: 4 },
@@ -85,7 +133,7 @@ test("loads JSONC config file", async () => {
         path.join(dir, "opencode.jsonc"),
         `{
         // This is a comment
-        "$schema": "https://opencode.ai/config.json",
+        "$schema": "https://altimate.ai/config.json",
         "model": "test/model",
         "username": "testuser"
       }`,
@@ -108,14 +156,14 @@ test("merges multiple config files with correct precedence", async () => {
       await writeConfig(
         dir,
         {
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           model: "base",
           username: "base",
         },
         "opencode.jsonc",
       )
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         model: "override",
       })
     },
@@ -138,7 +186,7 @@ test("handles environment variable substitution", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
         await writeConfig(dir, {
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           username: "{env:TEST_VAR}",
         })
       },
@@ -197,12 +245,58 @@ test("preserves env variables when adding $schema to config", async () => {
   }
 })
 
+test("resolves env templates in account config with account token", async () => {
+  const originalActive = Account.active
+  const originalConfig = Account.config
+  const originalToken = Account.token
+  const originalControlToken = process.env["OPENCODE_CONSOLE_TOKEN"]
+
+  Account.active = mock(() => ({
+    id: AccountID.make("account-1"),
+    email: "user@example.com",
+    url: "https://control.example.com",
+    active_org_id: OrgID.make("org-1"),
+  }))
+
+  Account.config = mock(async () => ({
+    provider: {
+      opencode: {
+        options: {
+          apiKey: "{env:OPENCODE_CONSOLE_TOKEN}",
+        },
+      },
+    },
+  }))
+
+  Account.token = mock(async () => AccessToken.make("st_test_token"))
+
+  try {
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const config = await Config.get()
+        expect(config.provider?.["opencode"]?.options?.apiKey).toBe("st_test_token")
+      },
+    })
+  } finally {
+    Account.active = originalActive
+    Account.config = originalConfig
+    Account.token = originalToken
+    if (originalControlToken !== undefined) {
+      process.env["OPENCODE_CONSOLE_TOKEN"] = originalControlToken
+    } else {
+      delete process.env["OPENCODE_CONSOLE_TOKEN"]
+    }
+  }
+})
+
 test("handles file inclusion substitution", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(path.join(dir, "included.txt"), "test-user")
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         username: "{file:included.txt}",
       })
     },
@@ -221,7 +315,7 @@ test("handles file inclusion with replacement tokens", async () => {
     init: async (dir) => {
       await Filesystem.write(path.join(dir, "included.md"), "const out = await Bun.$`echo hi`")
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         username: "{file:included.md}",
       })
     },
@@ -239,7 +333,7 @@ test("validates config schema and throws on invalid fields", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         invalid_field: "should cause error",
       })
     },
@@ -271,7 +365,7 @@ test("handles agent configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         agent: {
           test_agent: {
             model: "test/model",
@@ -301,7 +395,7 @@ test("treats agent variant as model-scoped setting (not provider option)", async
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         agent: {
           test_agent: {
             model: "openai/gpt-5.2",
@@ -332,7 +426,7 @@ test("handles command configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         command: {
           test_command: {
             template: "test template",
@@ -362,7 +456,7 @@ test("migrates autoshare to share field", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           autoshare: true,
         }),
       )
@@ -384,7 +478,7 @@ test("migrates mode field to agent field", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mode: {
             test_mode: {
               model: "test/model",
@@ -670,6 +764,39 @@ test("installs dependencies in writable OPENCODE_CONFIG_DIR", async () => {
   }
 })
 
+test("serializes concurrent config dependency installs", async () => {
+  await using tmp = await tmpdir()
+  const dirs = [path.join(tmp.path, "a"), path.join(tmp.path, "b")]
+  await Promise.all(dirs.map((dir) => fs.mkdir(dir, { recursive: true })))
+
+  const seen: string[] = []
+  let active = 0
+  let max = 0
+  const run = spyOn(BunProc, "run").mockImplementation(async (_cmd, opts) => {
+    active++
+    max = Math.max(max, active)
+    seen.push(opts?.cwd ?? "")
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    active--
+    return {
+      code: 0,
+      stdout: Buffer.alloc(0),
+      stderr: Buffer.alloc(0),
+    }
+  })
+
+  try {
+    await Promise.all(dirs.map((dir) => Config.installDependencies(dir)))
+  } finally {
+    run.mockRestore()
+  }
+
+  expect(max).toBe(1)
+  expect(seen.toSorted()).toEqual(dirs.toSorted())
+  expect(await Filesystem.exists(path.join(dirs[0], "package.json"))).toBe(true)
+  expect(await Filesystem.exists(path.join(dirs[1], "package.json"))).toBe(true)
+})
+
 test("resolves scoped npm plugins in config", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
@@ -699,7 +826,7 @@ test("resolves scoped npm plugins in config", async () => {
 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
-        JSON.stringify({ $schema: "https://opencode.ai/config.json", plugin: ["@scope/plugin"] }, null, 2),
+        JSON.stringify({ $schema: "https://altimate.ai/config.json", plugin: ["@scope/plugin"] }, null, 2),
       )
     },
   })
@@ -734,7 +861,7 @@ test("merges plugin arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           plugin: ["global-plugin-1", "global-plugin-2"],
         }),
       )
@@ -743,7 +870,7 @@ test("merges plugin arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           plugin: ["local-plugin-1"],
         }),
       )
@@ -810,7 +937,7 @@ test("merges instructions arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           instructions: ["global-instructions.md", "shared-rules.md"],
         }),
       )
@@ -818,7 +945,7 @@ test("merges instructions arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           instructions: ["local-instructions.md"],
         }),
       )
@@ -849,7 +976,7 @@ test("deduplicates duplicate instructions from global and local configs", async 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           instructions: ["duplicate.md", "global-only.md"],
         }),
       )
@@ -857,7 +984,7 @@ test("deduplicates duplicate instructions from global and local configs", async 
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           instructions: ["duplicate.md", "local-only.md"],
         }),
       )
@@ -893,7 +1020,7 @@ test("deduplicates duplicate plugins from global and local configs", async () =>
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           plugin: ["duplicate-plugin", "global-plugin-1"],
         }),
       )
@@ -902,7 +1029,7 @@ test("deduplicates duplicate plugins from global and local configs", async () =>
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           plugin: ["duplicate-plugin", "local-plugin-1"],
         }),
       )
@@ -941,7 +1068,7 @@ test("migrates legacy tools config to permissions - allow", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -972,7 +1099,7 @@ test("migrates legacy tools config to permissions - deny", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1003,7 +1130,7 @@ test("migrates legacy write tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1033,7 +1160,7 @@ test("managed settings override user settings", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         model: "user/model",
         share: "auto",
         username: "testuser",
@@ -1042,7 +1169,7 @@ test("managed settings override user settings", async () => {
   })
 
   await writeManagedSettings({
-    $schema: "https://opencode.ai/config.json",
+    $schema: "https://altimate.ai/config.json",
     model: "managed/model",
     share: "disabled",
   })
@@ -1062,7 +1189,7 @@ test("managed settings override project settings", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         autoupdate: true,
         disabled_providers: [],
       })
@@ -1070,7 +1197,7 @@ test("managed settings override project settings", async () => {
   })
 
   await writeManagedSettings({
-    $schema: "https://opencode.ai/config.json",
+    $schema: "https://altimate.ai/config.json",
     autoupdate: false,
     disabled_providers: ["openai"],
   })
@@ -1089,7 +1216,7 @@ test("missing managed settings file is not an error", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
-        $schema: "https://opencode.ai/config.json",
+        $schema: "https://altimate.ai/config.json",
         model: "user/model",
       })
     },
@@ -1110,7 +1237,7 @@ test("migrates legacy edit tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1139,7 +1266,7 @@ test("migrates legacy patch tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1168,7 +1295,7 @@ test("migrates legacy multiedit tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1197,7 +1324,7 @@ test("migrates mixed legacy tools config", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1232,7 +1359,7 @@ test("merges legacy tools with existing permission config", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           agent: {
             test: {
               permission: {
@@ -1265,7 +1392,7 @@ test("permission config preserves key order", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           permission: {
             "*": "deny",
             edit: "ask",
@@ -1313,7 +1440,7 @@ test("project config can override MCP server enabled status", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.jsonc"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             jira: {
               type: "remote",
@@ -1332,7 +1459,7 @@ test("project config can override MCP server enabled status", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             jira: {
               type: "remote",
@@ -1371,7 +1498,7 @@ test("MCP config deep merges preserving base config properties", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.jsonc"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             myserver: {
               type: "remote",
@@ -1388,7 +1515,7 @@ test("MCP config deep merges preserving base config properties", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             myserver: {
               type: "remote",
@@ -1423,7 +1550,7 @@ test("local .opencode config can override MCP from project config", async () => 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             docs: {
               type: "remote",
@@ -1439,7 +1566,7 @@ test("local .opencode config can override MCP from project config", async () => 
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
+          $schema: "https://altimate.ai/config.json",
           mcp: {
             docs: {
               type: "remote",
@@ -1507,7 +1634,7 @@ test("project config overrides remote well-known config", async () => {
         await Filesystem.write(
           path.join(dir, "opencode.json"),
           JSON.stringify({
-            $schema: "https://opencode.ai/config.json",
+            $schema: "https://altimate.ai/config.json",
             mcp: {
               jira: {
                 type: "remote",
@@ -1581,7 +1708,7 @@ test("wellknown URL with trailing slash is normalized", async () => {
         await Filesystem.write(
           path.join(dir, "opencode.json"),
           JSON.stringify({
-            $schema: "https://opencode.ai/config.json",
+            $schema: "https://altimate.ai/config.json",
           }),
         )
       },
@@ -1665,7 +1792,7 @@ describe("deduplicatePlugins", () => {
         await Filesystem.write(
           path.join(dir, "opencode.json"),
           JSON.stringify({
-            $schema: "https://opencode.ai/config.json",
+            $schema: "https://altimate.ai/config.json",
             plugin: ["my-plugin@1.0.0"],
           }),
         )
@@ -1700,7 +1827,7 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
           await Filesystem.write(
             path.join(dir, "opencode.json"),
             JSON.stringify({
-              $schema: "https://opencode.ai/config.json",
+              $schema: "https://altimate.ai/config.json",
               model: "project/model",
               username: "project-user",
             }),
@@ -1795,7 +1922,7 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
           await Filesystem.write(
             path.join(dir, "opencode.json"),
             JSON.stringify({
-              $schema: "https://opencode.ai/config.json",
+              $schema: "https://altimate.ai/config.json",
               instructions: ["./CUSTOM.md"],
             }),
           )
@@ -1841,7 +1968,7 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
           await Filesystem.write(
             path.join(dir, "opencode.json"),
             JSON.stringify({
-              $schema: "https://opencode.ai/config.json",
+              $schema: "https://altimate.ai/config.json",
               model: "configdir/model",
             }),
           )
@@ -1854,7 +1981,7 @@ describe("OPENCODE_DISABLE_PROJECT_CONFIG", () => {
           await Filesystem.write(
             path.join(dir, "opencode.json"),
             JSON.stringify({
-              $schema: "https://opencode.ai/config.json",
+              $schema: "https://altimate.ai/config.json",
               model: "project/model",
             }),
           )
@@ -1893,7 +2020,7 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
     const originalTestVar = process.env["TEST_CONFIG_VAR"]
     process.env["TEST_CONFIG_VAR"] = "test_api_key_12345"
     process.env["OPENCODE_CONFIG_CONTENT"] = JSON.stringify({
-      $schema: "https://opencode.ai/config.json",
+      $schema: "https://altimate.ai/config.json",
       username: "{env:TEST_CONFIG_VAR}",
     })
 
@@ -1928,7 +2055,7 @@ describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
         init: async (dir) => {
           await Filesystem.write(path.join(dir, "api_key.txt"), "secret_key_from_file")
           process.env["OPENCODE_CONFIG_CONTENT"] = JSON.stringify({
-            $schema: "https://opencode.ai/config.json",
+            $schema: "https://altimate.ai/config.json",
             username: "{file:./api_key.txt}",
           })
         },

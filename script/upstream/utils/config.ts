@@ -245,7 +245,6 @@ export const defaultConfig: MergeConfig = {
 
   keepOurs: [
     "README.md",
-    "README.*.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
@@ -258,7 +257,6 @@ export const defaultConfig: MergeConfig = {
     "github/README.md",
     "github/index.ts",
     "install",
-    "infra/**",
     "packages/altimate-engine/**",
     "packages/opencode/src/altimate/**",
     "packages/opencode/src/bridge/**",
@@ -297,6 +295,28 @@ export const defaultConfig: MergeConfig = {
     "specs/**",
     // Translated READMEs
     "README.*.md",
+    // Translation glossaries (we don't ship translations)
+    ".opencode/glossary/**",
+    ".opencode/agent/translator.md",
+    // Upstream project-specific dev tools and agents
+    ".opencode/tool/github-triage.ts",
+    ".opencode/tool/github-triage.txt",
+    ".opencode/tool/github-pr-search.txt",
+    ".opencode/tool/github-pr-search.ts",
+    ".opencode/agent/duplicate-pr.md",
+    ".opencode/agent/triage.md",
+    ".opencode/agent/docs.md",
+    ".opencode/themes/mytheme.json",
+    ".opencode/env.d.ts",
+    ".opencode/command/rmslop.md",
+    ".opencode/command/ai-deps.md",
+    ".opencode/command/spellcheck.md",
+    // Storybook CI (packages/storybook and packages/ui are deleted)
+    ".github/workflows/storybook.yml",
+    // Upstream Zed extension sync (no workflow references it)
+    "script/sync-zed.ts",
+    // Upstream AGENTS.md references dev branch, misleading for our fork
+    "AGENTS.md",
   ],
 
   brandingRules: [

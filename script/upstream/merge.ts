@@ -21,6 +21,7 @@ import fs from "fs"
 import path from "path"
 import * as git from "./utils/git"
 import * as logger from "./utils/logger"
+import { RESET, BOLD, DIM, CYAN, GREEN, RED, YELLOW, MAGENTA, bold, dim, cyan, green, red, yellow, banner } from "./utils/logger"
 import { loadConfig, repoRoot, type MergeConfig, type StringReplacement } from "./utils/config"
 import { createReport, addFileReport, printSummary, writeReport, type MergeReport, type FileReport, type Change } from "./utils/report"
 
@@ -93,29 +94,6 @@ function printUsage(): void {
     ${dim("# Resume after resolving conflicts")}
     bun run script/upstream/merge.ts --continue
 `)
-}
-
-const RESET = "\x1b[0m"
-const BOLD = "\x1b[1m"
-const DIM = "\x1b[2m"
-const CYAN = "\x1b[36m"
-const GREEN = "\x1b[32m"
-const RED = "\x1b[31m"
-const YELLOW = "\x1b[33m"
-const MAGENTA = "\x1b[35m"
-
-function bold(s: string): string { return `${BOLD}${s}${RESET}` }
-function dim(s: string): string { return `${DIM}${s}${RESET}` }
-function cyan(s: string): string { return `${CYAN}${s}${RESET}` }
-function green(s: string): string { return `${GREEN}${s}${RESET}` }
-function red(s: string): string { return `${RED}${s}${RESET}` }
-function yellow(s: string): string { return `${YELLOW}${s}${RESET}` }
-
-function banner(text: string): void {
-  const line = "═".repeat(60)
-  console.log(`\n${CYAN}${line}${RESET}`)
-  console.log(`${CYAN}  ${BOLD}${text}${RESET}`)
-  console.log(`${CYAN}${line}${RESET}\n`)
 }
 
 function saveState(state: MergeState): void {
@@ -301,49 +279,64 @@ async function autoResolveConflicts(
   const remaining: string[] = []
 
   for (const file of conflicts) {
-    // Strategy 1: keepOurs — files we own entirely
-    const isKeepOurs = config.keepOurs.some((p) => minimatch(file, p))
-    if (isKeepOurs) {
-      await $`git checkout --ours -- ${file}`.cwd(root).quiet()
-      await $`git add ${file}`.cwd(root).quiet()
-      resolved.push(file)
-      logger.success(`${file} ${dim("(kept ours)")}`)
-      continue
-    }
+    try {
+      // Strategy 1: keepOurs — files we own entirely
+      const isKeepOurs = config.keepOurs.some((p) => minimatch(file, p))
+      if (isKeepOurs) {
+        await $`git checkout --ours -- ${file}`.cwd(root).quiet()
+        await $`git add ${file}`.cwd(root).quiet()
+        resolved.push(file)
+        logger.success(`${file} ${dim("(kept ours)")}`)
+        continue
+      }
 
-    // Strategy 2: skipFiles — upstream files we accept wholesale
-    const isSkipFile = config.skipFiles.some((p) => minimatch(file, p))
-    if (isSkipFile) {
-      await $`git checkout --theirs -- ${file}`.cwd(root).quiet()
-      await $`git add ${file}`.cwd(root).quiet()
-      resolved.push(file)
-      logger.success(`${file} ${dim("(accepted upstream)")}`)
-      continue
-    }
+      // Strategy 2: skipFiles — upstream files we accept wholesale
+      const isSkipFile = config.skipFiles.some((p) => minimatch(file, p))
+      if (isSkipFile) {
+        // File may have been deleted on one side; try --theirs first, fall back to removing
+        try {
+          await $`git checkout --theirs -- ${file}`.cwd(root).quiet()
+        } catch {
+          // File deleted on upstream side — accept the deletion
+          await $`git rm --force --ignore-unmatch -- ${file}`.cwd(root).quiet()
+        }
+        await $`git add ${file}`.cwd(root).quiet()
+        resolved.push(file)
+        logger.success(`${file} ${dim("(accepted upstream)")}`)
+        continue
+      }
 
-    // Strategy 3: Lock files — accept ours, will regenerate later
-    if (file === "bun.lock" || file.endsWith("/bun.lock") ||
-        file === "package-lock.json" || file.endsWith("/package-lock.json")) {
-      await $`git checkout --ours -- ${file}`.cwd(root).quiet()
-      await $`git add ${file}`.cwd(root).quiet()
-      resolved.push(file)
-      logger.success(`${file} ${dim("(kept ours, will regenerate)")}`)
-      continue
-    }
+      // Strategy 3: Lock files — accept ours, will regenerate later
+      if (file === "bun.lock" || file.endsWith("/bun.lock") ||
+          file === "package-lock.json" || file.endsWith("/package-lock.json")) {
+        await $`git checkout --ours -- ${file}`.cwd(root).quiet()
+        await $`git add ${file}`.cwd(root).quiet()
+        resolved.push(file)
+        logger.success(`${file} ${dim("(kept ours, will regenerate)")}`)
+        continue
+      }
 
-    // Strategy 4: Binary files — accept upstream
-    const binaryExts = [".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2",
-                        ".ttf", ".eot", ".pyc", ".whl", ".gz", ".zip", ".tar",
-                        ".svg", ".webp", ".avif"]
-    if (binaryExts.some((ext) => file.endsWith(ext))) {
-      await $`git checkout --theirs -- ${file}`.cwd(root).quiet()
-      await $`git add ${file}`.cwd(root).quiet()
-      resolved.push(file)
-      logger.success(`${file} ${dim("(binary, accepted upstream)")}`)
-      continue
-    }
+      // Strategy 4: Binary files — accept upstream
+      const binaryExts = [".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2",
+                          ".ttf", ".eot", ".pyc", ".whl", ".gz", ".zip", ".tar",
+                          ".svg", ".webp", ".avif"]
+      if (binaryExts.some((ext) => file.endsWith(ext))) {
+        try {
+          await $`git checkout --theirs -- ${file}`.cwd(root).quiet()
+        } catch {
+          await $`git rm --force --ignore-unmatch -- ${file}`.cwd(root).quiet()
+        }
+        await $`git add ${file}`.cwd(root).quiet()
+        resolved.push(file)
+        logger.success(`${file} ${dim("(binary, accepted upstream)")}`)
+        continue
+      }
 
-    remaining.push(file)
+      remaining.push(file)
+    } catch (e: any) {
+      logger.warn(`Could not auto-resolve ${file}: ${e.message || e}`)
+      remaining.push(file)
+    }
   }
 
   return { resolved, remaining }
@@ -748,15 +741,71 @@ async function continueAfterConflicts(config: MergeConfig): Promise<void> {
 
   logger.success("All conflicts resolved")
 
-  // Commit the merge
+  // Commit the merge (skip if already committed)
   logger.info("Committing merge...")
-  await $`git commit --no-edit`.cwd(root).quiet()
-  logger.success("Merge committed")
+  try {
+    await $`git commit --no-edit`.cwd(root).quiet()
+    logger.success("Merge committed")
+  } catch {
+    logger.info("Merge already committed, continuing...")
+  }
 
   // Use pre-merge version snapshot from saved state, fall back to current if not available
   const versionSnapshot = state.versionSnapshot ?? snapshotVersions()
 
   await postMergeTransforms(config, state.version, versionSnapshot)
+}
+
+// ---------------------------------------------------------------------------
+// skipFiles cleanup
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete files/directories matching skipFiles patterns that exist in the repo.
+ * These are upstream packages we don't need — the merge may have re-introduced them.
+ */
+async function cleanupSkipFiles(config: MergeConfig): Promise<void> {
+  const { minimatch } = await import("minimatch")
+  const root = repoRoot()
+
+  // Get all tracked files and find those matching skipFiles patterns
+  const trackedFiles = await git.getTrackedFiles()
+  const toRemove = trackedFiles.filter((f) =>
+    config.skipFiles.some((p) => minimatch(f, p)),
+  )
+
+  if (toRemove.length === 0) {
+    logger.info("No skipFiles to clean up")
+    return
+  }
+
+  logger.info(`Removing ${toRemove.length} file(s) matching skipFiles patterns...`)
+
+  // Remove via git rm in batches
+  const batchSize = 100
+  for (let i = 0; i < toRemove.length; i += batchSize) {
+    const batch = toRemove.slice(i, i + batchSize)
+    try {
+      await $`git rm -rf --ignore-unmatch -- ${batch}`.cwd(root).quiet()
+    } catch (e: any) {
+      logger.warn(`Some skipFiles could not be removed: ${e.message || e}`)
+    }
+  }
+
+  // Also delete leftover empty directories for skipFiles directory patterns
+  for (const pattern of config.skipFiles) {
+    // Only handle directory-level patterns (ending with /**)
+    if (!pattern.endsWith("/**")) continue
+    const dirPath = path.join(root, pattern.replace("/**", ""))
+    if (fs.existsSync(dirPath)) {
+      try {
+        fs.rmSync(dirPath, { recursive: true, force: true })
+        logger.success(`Removed directory: ${pattern.replace("/**", "")}`)
+      } catch {
+        // Best effort
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -771,9 +820,13 @@ async function postMergeTransforms(
   const root = repoRoot()
   const report = createReport(version)
 
-  // ─── Step 7: Apply branding transforms ────────────────────────────────────
+  // ─── Step 7: Clean up skipFiles and apply branding transforms ─────────────
 
-  logger.step(7, TOTAL_STEPS, "Applying branding transforms")
+  logger.step(7, TOTAL_STEPS, "Cleaning up skipFiles and applying branding transforms")
+
+  // Delete skipFiles directories/files that may have been introduced by the merge
+  await cleanupSkipFiles(config)
+
   await applyBrandingTransforms(config, report)
 
   // ─── Step 8: Restore package versions ─────────────────────────────────────

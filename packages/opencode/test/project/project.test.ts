@@ -7,6 +7,7 @@ import fs from "fs/promises"
 import { tmpdir } from "../fixture/fixture"
 import { Filesystem } from "../../src/util/filesystem"
 import { GlobalBus } from "../../src/bus/global"
+import { ProjectID } from "../../src/project/schema"
 
 Log.init({ print: false })
 
@@ -75,11 +76,11 @@ describe("Project.fromDirectory", () => {
     const { project } = await p.fromDirectory(tmp.path)
 
     expect(project).toBeDefined()
-    expect(project.id).toBe("global")
+    expect(project.id).toBe(ProjectID.global)
     expect(project.vcs).toBe("git")
     expect(project.worktree).toBe(tmp.path)
 
-    const opencodeFile = path.join(tmp.path, ".git", "altimate")
+    const opencodeFile = path.join(tmp.path, ".git", "opencode")
     const fileExists = await Filesystem.exists(opencodeFile)
     expect(fileExists).toBe(false)
   })
@@ -91,11 +92,11 @@ describe("Project.fromDirectory", () => {
     const { project } = await p.fromDirectory(tmp.path)
 
     expect(project).toBeDefined()
-    expect(project.id).not.toBe("global")
+    expect(project.id).not.toBe(ProjectID.global)
     expect(project.vcs).toBe("git")
     expect(project.worktree).toBe(tmp.path)
 
-    const opencodeFile = path.join(tmp.path, ".git", "altimate")
+    const opencodeFile = path.join(tmp.path, ".git", "opencode")
     const fileExists = await Filesystem.exists(opencodeFile)
     expect(fileExists).toBe(true)
   })
@@ -104,11 +105,11 @@ describe("Project.fromDirectory", () => {
     const p = await loadProject()
     await using tmp = await tmpdir({ git: true })
 
-    // First call creates .git/altimate with the project id
+    // First call creates .git/opencode with the project id
     const { project: first } = await p.fromDirectory(tmp.path)
     expect(first.id).not.toBe("global")
 
-    const newFile = path.join(tmp.path, ".git", "altimate")
+    const newFile = path.join(tmp.path, ".git", "opencode")
     const legacyFile = path.join(tmp.path, ".git", "altimate-code")
 
     // Move the new file to the legacy location to simulate an old installation
@@ -129,7 +130,7 @@ describe("Project.fromDirectory", () => {
     await withMode("rev-list-fail", async () => {
       const { project } = await p.fromDirectory(tmp.path)
       expect(project.vcs).toBe("git")
-      expect(project.id).toBe("global")
+      expect(project.id).toBe(ProjectID.global)
       expect(project.worktree).toBe(tmp.path)
     })
   })
@@ -323,7 +324,7 @@ describe("Project.update", () => {
 
     await expect(
       Project.update({
-        projectID: "nonexistent-project-id",
+        projectID: ProjectID.make("nonexistent-project-id"),
         name: "Should Fail",
       }),
     ).rejects.toThrow("Project not found: nonexistent-project-id")
