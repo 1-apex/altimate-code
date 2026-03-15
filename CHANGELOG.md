@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-03-15
+
+### Fixed
+
+- Database migration crash when upgrading from v0.2.x — backfill NULL migration names for Drizzle beta.16 compatibility (#161)
+- Install banner not visible during `npm install` — moved output from stdout to stderr (#161)
+- Verbose changelog dump removed from CLI startup (#161)
+- `altimate upgrade` detection broken — `method()` and `latest()` referenced upstream `opencode-ai` package names instead of `@altimateai/altimate-code` (#161)
+- Brew formula detection and upgrade referencing `opencode` instead of `altimate-code` (#161)
+- Homebrew tap updated to v0.3.0 (was stuck at 0.1.4 due to expired `HOMEBREW_TAP_TOKEN`) (#161)
+- `.opencode/memory/` references in docs updated to `.altimate-code/memory/` (#161)
+- Stale `@opencode-ai/plugin` reference in CONTRIBUTING.md (#161)
+
+### Changed
+
+- CI now uses path-based change detection to skip unaffected jobs (saves ~100s on non-TS changes) (#161)
+- Release workflow gated on test job passing (#157)
+- Upstream merge restricted to published GitHub releases only (#150)
+
 ## [0.3.0] - 2026-03-15
 
 ### Added
