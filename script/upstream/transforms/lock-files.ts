@@ -1,5 +1,5 @@
-import { git, conflictedFiles } from "../utils/git"
 import { execSync } from "child_process"
+import { git, conflictedFiles } from "../utils/git"
 import { repoRoot } from "../utils/config"
 
 /**

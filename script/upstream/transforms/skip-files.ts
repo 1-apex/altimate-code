@@ -15,8 +15,7 @@ export function resolveSkipFiles(): { resolved: string[]; skipped: string[] } {
   for (const file of conflicts) {
     const shouldSkip = config.skipFiles.some((pattern) => minimatch(file, pattern))
     if (shouldSkip) {
-      // Accept upstream's version — we don't modify these files
-      git(`checkout --theirs "${file}"`)
+      git(`checkout --theirs -- "${file}"`)
       git(`add "${file}"`)
       resolved.push(file)
     } else {

@@ -1,8 +1,12 @@
 {
-  "name": "@altimateai/upstream-merge",
+  "name": "upstream-merge",
   "private": true,
   "type": "module",
   "dependencies": {
     "minimatch": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.0.0"
   }
 }

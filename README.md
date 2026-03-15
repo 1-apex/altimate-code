@@ -14,7 +14,7 @@ understands your data, and helps you ship faster.
 [![PyPI](https://img.shields.io/pypi/v/altimate-engine)](https://pypi.org/project/altimate-engine/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![CI](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml/badge.svg)](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-altimate--code.sh-blue)](https://altimate-code.sh)
+[![Docs](https://img.shields.io/badge/docs-altimate--code.sh-blue)](https://altimate.ai)
 
 </div>
 
@@ -150,12 +150,12 @@ packages/
 
 ## Documentation
 
-Full docs at **[altimate-code.sh](https://altimate-code.sh)**.
+Full docs at **[altimate.ai](https://altimate.ai)**.
 
-- [Getting Started](https://altimate-code.sh/getting-started/)
-- [SQL Tools](https://altimate-code.sh/data-engineering/tools/sql-tools/)
-- [Agent Modes](https://altimate-code.sh/data-engineering/agent-modes/)
-- [Configuration](https://altimate-code.sh/configure/model-providers/)
+- [Getting Started](https://altimate.ai/getting-started/)
+- [SQL Tools](https://altimate.ai/data-engineering/tools/sql-tools/)
+- [Agent Modes](https://altimate.ai/data-engineering/agent-modes/)
+- [Configuration](https://altimate.ai/configure/model-providers/)
 
 ## Community & Contributing
 

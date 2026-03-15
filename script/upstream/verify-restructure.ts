@@ -26,7 +26,7 @@ const { values: args } = parseArgs({
     "no-strict": { type: "boolean", default: false },
   },
   strict: false,
-})
+}) as any
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -29,7 +29,14 @@
     "packages/storybook/**",
     "packages/ui/**",
     "packages/web/**",
-    "infra/**"
+    "nix/**",
+    "flake.nix",
+    "flake.lock",
+    "infra/**",
+    "sst.config.ts",
+    "sst-env.d.ts",
+    "specs/**",
+    "README.*.md"
   ],
   "packageMappings": {
     "@opencode-ai/opencode": "@altimateai/altimate-code",
