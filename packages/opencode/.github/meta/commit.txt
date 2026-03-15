@@ -1,0 +1,14 @@
+fix: address new Sentry findings — regex m flag and off-by-one budget check
+
+1. formatTrainingEntry regex: remove multiline `m` flag that could
+   match user content mid-string (memory/prompt.ts:82)
+
+2. Memory block budget check: change `<` to `<=` so blocks that fit
+   exactly into remaining budget are included (memory/prompt.ts:204)
+
+3 prior Sentry findings already fixed in earlier commits:
+   - projectDir cache (Map keyed by Instance.directory)
+   - injectTrainingOnly header-only return (itemCount guard)
+   - orphaned section headers (first-entry pre-check)
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>

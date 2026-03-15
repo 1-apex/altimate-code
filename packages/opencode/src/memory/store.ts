@@ -1,5 +1,6 @@
 // altimate_change - Altimate Memory persistent store
 import fs from "fs/promises"
+import fsSync from "fs"
 import path from "path"
 import { Global } from "@/global"
 import { Instance } from "@/project/instance"
@@ -12,9 +13,27 @@ function globalDir(): string {
   return path.join(Global.Path.data, "memory")
 }
 
+// altimate_change start - use .altimate-code (primary) with .opencode (fallback)
+// Cache keyed by Instance.directory to avoid stale paths when context changes
+const _projectDirCache = new Map<string, string>()
 function projectDir(): string {
-  return path.join(Instance.directory, ".opencode", "memory")
+  const dir = Instance.directory
+  const cached = _projectDirCache.get(dir)
+  if (cached) return cached
+  const primary = path.join(dir, ".altimate-code", "memory")
+  const fallback = path.join(dir, ".opencode", "memory")
+  let result: string
+  if (fsSync.existsSync(path.join(dir, ".altimate-code"))) {
+    result = primary
+  } else if (fsSync.existsSync(path.join(dir, ".opencode"))) {
+    result = fallback
+  } else {
+    result = primary
+  }
+  _projectDirCache.set(dir, result)
+  return result
 }
+// altimate_change end
 
 function dirForScope(scope: "global" | "project"): string {
   return scope === "global" ? globalDir() : projectDir()

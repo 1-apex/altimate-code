@@ -1,0 +1,10 @@
+docs: update site-wide docs for training and new agent modes
+
+- Homepage: update from "Four agents" to "Seven agents" — add Researcher,
+  Trainer, Executive cards with descriptions
+- Getting Started: update training link to match new pitch
+  "Corrections That Stick"
+- Tools index: add Training row (3 tools + 3 skills) with link
+- All references now consistent with simplified training system
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
