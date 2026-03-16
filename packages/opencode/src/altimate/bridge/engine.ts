@@ -25,12 +25,18 @@ declare const OPENCODE_VERSION: string
 // Mutex to prevent concurrent ensureEngine/ensureUv calls from corrupting state
 let pendingEnsure: Promise<void> | null = null
 
+/** Pip extras spec for altimate-engine (e.g. "warehouses" → altimate-engine[warehouses]).
+ *  Used in ensureEngine install command and recorded in manifest for upgrade detection. */
+export const ENGINE_INSTALL_SPEC = "warehouses"
+
 interface Manifest {
   engine_version: string
   python_version: string
   uv_version: string
   cli_version: string
   installed_at: string
+  /** Comma-separated extras that were installed (e.g. "warehouses") */
+  extras?: string
 }
 
 /** Returns path to the engine directory */
@@ -158,7 +164,12 @@ export async function ensureEngine(): Promise<void> {
 async function ensureEngineImpl(): Promise<void> {
   const manifest = await readManifest()
   const isUpgrade = manifest !== null
-  if (manifest && manifest.engine_version === ALTIMATE_ENGINE_VERSION) return
+
+  // Validate both version AND filesystem state — a matching version in the
+  // manifest is not enough if the venv or Python binary was deleted.
+  const pythonExists = existsSync(enginePythonPath())
+  const extrasMatch = (manifest?.extras ?? "") === ENGINE_INSTALL_SPEC
+  if (manifest && manifest.engine_version === ALTIMATE_ENGINE_VERSION && pythonExists && extrasMatch) return
 
   const startTime = Date.now()
 
@@ -168,8 +179,9 @@ async function ensureEngineImpl(): Promise<void> {
   const dir = engineDir()
   const venvDir = path.join(dir, "venv")
 
-  // Create venv if it doesn't exist
-  if (!existsSync(venvDir)) {
+  // Create venv if it doesn't exist, or recreate if the Python binary is missing
+  // (e.g. user deleted the binary but left the venv directory intact)
+  if (!existsSync(venvDir) || !pythonExists) {
     Log.Default.info("creating python environment")
     try {
       execFileSync(uv, ["venv", "--python", "3.12", venvDir], { stdio: "pipe" })
@@ -189,7 +201,8 @@ async function ensureEngineImpl(): Promise<void> {
   const pythonPath = enginePythonPath()
   Log.Default.info("installing altimate-engine", { version: ALTIMATE_ENGINE_VERSION })
   try {
-    execFileSync(uv, ["pip", "install", "--python", pythonPath, `altimate-engine==${ALTIMATE_ENGINE_VERSION}`], { stdio: "pipe" })
+    const spec = `altimate-engine[${ENGINE_INSTALL_SPEC}]==${ALTIMATE_ENGINE_VERSION}`
+    execFileSync(uv, ["pip", "install", "--python", pythonPath, spec], { stdio: "pipe" })
   } catch (e: any) {
     Telemetry.track({
       type: "engine_error",
@@ -212,6 +225,7 @@ async function ensureEngineImpl(): Promise<void> {
     uv_version: uvVersion,
     cli_version: typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local",
     installed_at: new Date().toISOString(),
+    extras: ENGINE_INSTALL_SPEC,
   })
 
   Telemetry.track({
@@ -220,6 +234,7 @@ async function ensureEngineImpl(): Promise<void> {
     session_id: Telemetry.getContext().sessionId,
     engine_version: ALTIMATE_ENGINE_VERSION,
     python_version: pyVersion,
+    extras: ENGINE_INSTALL_SPEC,
     status: isUpgrade ? "upgraded" : "started",
     duration_ms: Date.now() - startTime,
   })

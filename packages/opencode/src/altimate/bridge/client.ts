@@ -14,6 +14,13 @@ import type { BridgeMethod, BridgeMethods } from "./protocol"
 import { Telemetry } from "../telemetry"
 import { Log } from "../../util/log"
 
+/** Platform-aware path to the python binary inside a venv directory. */
+function venvPythonBin(venvDir: string): string {
+  return process.platform === "win32"
+    ? path.join(venvDir, "Scripts", "python.exe")
+    : path.join(venvDir, "bin", "python")
+}
+
 /** Resolve the Python interpreter to use for the engine sidecar.
  *  Exported for testing — not part of the public API. */
 export function resolvePython(): string {
@@ -22,16 +29,19 @@ export function resolvePython(): string {
 
   // 2. Check for .venv relative to altimate-engine package (local dev)
   const engineDir = path.resolve(__dirname, "..", "..", "..", "altimate-engine")
-  const venvPython = path.join(engineDir, ".venv", "bin", "python")
+  const venvPython = venvPythonBin(path.join(engineDir, ".venv"))
   if (existsSync(venvPython)) return venvPython
 
-  // 3. Check for .venv in cwd
-  const cwdVenv = path.join(process.cwd(), ".venv", "bin", "python")
-  if (existsSync(cwdVenv)) return cwdVenv
-
-  // 4. Check the managed engine venv (created by ensureEngine)
+  // 3. Check the managed engine venv (created by ensureEngine)
+  //    This must come before the CWD venv check — ensureEngine() installs
+  //    altimate-engine here, so an unrelated .venv in the user's project
+  //    directory must not shadow it.
   const managedPython = enginePythonPath()
   if (existsSync(managedPython)) return managedPython
+
+  // 4. Check for .venv in cwd
+  const cwdVenv = venvPythonBin(path.join(process.cwd(), ".venv"))
+  if (existsSync(cwdVenv)) return cwdVenv
 
   // 5. Fallback
   return "python3"
@@ -45,6 +55,8 @@ export namespace Bridge {
   const CALL_TIMEOUT_MS = 30_000
   const pending = new Map<number, { resolve: (value: any) => void; reject: (reason: any) => void }>()
   let buffer = ""
+  // Mutex to prevent concurrent start() calls from spawning duplicate processes
+  let pendingStart: Promise<void> | null = null
 
   export async function call<M extends BridgeMethod>(
     method: M,
@@ -53,7 +65,20 @@ export namespace Bridge {
     const startTime = Date.now()
     if (!child || child.exitCode !== null) {
       if (restartCount >= MAX_RESTARTS) throw new Error("Python bridge failed after max restarts")
-      await start()
+      if (pendingStart) {
+        await pendingStart
+        // Re-check: the process may have died between startup and now
+        if (!child || child.exitCode !== null) {
+          throw new Error("Bridge process died during startup")
+        }
+      } else {
+        pendingStart = start()
+        try {
+          await pendingStart
+        } finally {
+          pendingStart = null
+        }
+      }
     }
     const id = ++requestId
     const request = JSON.stringify({ jsonrpc: "2.0", method, params, id })
@@ -141,8 +166,18 @@ export namespace Bridge {
       if (msg) Log.Default.error("altimate-engine stderr", { message: msg })
     })
 
+    child.on("error", (err) => {
+      Log.Default.error("altimate-engine spawn error", { error: String(err) })
+      restartCount++
+      for (const [id, p] of pending) {
+        p.reject(new Error(`Bridge process failed to spawn: ${err}`))
+        pending.delete(id)
+      }
+      child = undefined
+    })
+
     child.on("exit", (code) => {
-      if (code !== 0) restartCount++
+      if (code !== null && code !== 0) restartCount++
       for (const [id, p] of pending) {
         p.reject(new Error(`Bridge process exited (code ${code})`))
         pending.delete(id)
@@ -154,6 +189,11 @@ export namespace Bridge {
     try {
       await call("ping", {} as any)
     } catch (e) {
+      // Clean up the spawned process so subsequent call() invocations
+      // correctly detect !child and trigger a restart instead of writing
+      // to a non-functional process and hanging until timeout.
+      child?.kill()
+      child = undefined
       throw new Error(`Failed to start Python bridge: ${e}`)
     }
   }
