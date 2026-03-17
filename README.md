@@ -6,8 +6,8 @@
 
 **The data engineering agent for dbt, SQL, and cloud warehouses.**
 
-An AI-powered CLI with 55+ specialized tools — SQL analysis, schema inspection,
-column-level lineage, FinOps, and PII detection. Connects to your warehouse,
+An AI-powered CLI with 99+ specialized tools — SQL analysis, schema inspection,
+column-level lineage, FinOps, PII detection, and data visualization. Connects to your warehouse,
 understands your data, and helps you ship faster.
 
 [![npm](https://img.shields.io/npm/v/@altimateai/altimate-code)](https://www.npmjs.com/package/@altimateai/altimate-code)
@@ -24,7 +24,7 @@ understands your data, and helps you ship faster.
 
 General-purpose coding agents can write SQL, but they don't *understand* it. They can't trace lineage, detect anti-patterns, check PII exposure, or optimize warehouse costs — because they don't have the tools.
 
-altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt for data teams. It gives any LLM access to 55+ specialized data engineering tools, 11 purpose-built skills, and direct warehouse connectivity — so the AI works with your actual schemas, not guesses.
+altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt for data teams. It gives any LLM access to 99+ specialized data engineering tools, 12 purpose-built skills, and direct warehouse connectivity — so the AI works with your actual schemas, not guesses.
 
 ## General agents vs altimate
 
@@ -37,6 +37,8 @@ altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt 
 | FinOps analysis | None | Credit analysis, expensive queries, warehouse sizing |
 | PII detection | None | Automatic column scanning |
 | dbt integration | Basic file editing | Manifest parsing, test generation, model scaffolding |
+| Data visualization | None | Auto-generated charts from SQL results |
+| Observability | None | Local-first tracing of AI sessions and tool calls |
 
 ## Quick demo
 
@@ -75,7 +77,16 @@ Transpile SQL between Snowflake, BigQuery, Databricks, Redshift, PostgreSQL, MyS
 Automatic column scanning for PII across 15 categories with 30+ regex patterns. Safety checks and policy enforcement before query execution.
 
 ### dbt Native
-Manifest parsing, test generation, model scaffolding, incremental model detection, and lineage-aware refactoring. 11 purpose-built skills including medallion patterns, yaml config generation, and dbt docs.
+Manifest parsing, test generation, model scaffolding, incremental model detection, and lineage-aware refactoring. 12 purpose-built skills including medallion patterns, yaml config generation, and dbt docs.
+
+### Data Visualization
+Interactive charts and dashboards from SQL results. The data-viz skill generates publication-ready visualizations with automatic chart type selection based on your data.
+
+### Local-First Tracing
+Built-in observability for AI interactions — trace tool calls, token usage, and session activity locally. No external services required. View traces with `altimate trace`.
+
+### AI Teammate Training
+Teach your AI teammate project-specific patterns, naming conventions, and best practices. The training system learns from examples and applies rules automatically across sessions.
 
 ## Install
 
@@ -135,7 +146,7 @@ altimate-engine (Python)
 
 The CLI handles AI interactions, TUI, and tool orchestration. The Python engine handles SQL parsing, analysis, lineage computation, and warehouse interactions via a JSON-RPC bridge.
 
-**Zero-dependency bootstrap**: On first run the CLI downloads [`uv`](https://github.com/astral-sh/uv), creates an isolated Python environment, and installs the engine automatically. No system Python required.
+**Zero-dependency bootstrap**: On first run the CLI downloads [`uv`](https://github.com/astral-sh/uv), creates an isolated Python environment, and installs the engine with all warehouse drivers automatically. No system Python required.
 
 ### Monorepo structure
 
