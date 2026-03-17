@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-03-16
+
+### Added
+
+- Local-first tracing system replacing Langfuse (#183)
+
+### Fixed
+
+- Engine not found when user's project has `.venv` in cwd — managed venv now takes priority (#199)
+- Missing `[warehouses]` pip extra causing FinOps tools to fail with "snowflake-connector-python not installed" (#199)
+- Engine install trusting stale manifest when venv/Python binary was deleted (#199)
+- Extras changes not detected on upgrade — manifest now tracks installed extras (#199)
+- Windows path handling for dev/cwd venv resolution (#199)
+- Concurrent bridge startup race condition — added `pendingStart` mutex (#199)
+- Unhandled spawn `error` event crashing host process on invalid Python path (#199)
+- Bridge hung permanently after ping failure — child process now cleaned up (#199)
+- `restartCount` incorrectly incremented on signal kills, prematurely disabling bridge (#199)
+- TUI prompt corruption from engine bootstrap messages writing to stderr (#180)
+- Tracing exporter timeout leaking timers (#191)
+- Feedback submission failing when repo labels don't exist (#188)
+- Pre-release security and resource cleanup fixes for tracing (#197)
+
 ## [0.4.0] - 2026-03-15
 
 ### Added
