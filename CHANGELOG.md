@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.1] - 2026-03-16
+## [0.4.2] - 2026-03-18
+
+### Breaking Changes
+
+- **Python engine eliminated** — all 73 tool methods now run natively in TypeScript. No Python, pip, venv, or `altimate-engine` installation required. Fixes #210.
+
+### Added
+
+- `@altimateai/drivers` shared workspace package with 10 database drivers (Snowflake, BigQuery, PostgreSQL, Databricks, Redshift, MySQL, SQL Server, Oracle, DuckDB, SQLite)
+- Direct `@altimateai/altimate-core` napi-rs bindings — SQL analysis calls go straight to Rust (no Python intermediary)
+- dbt-first SQL execution — automatically uses `profiles.yml` connection when in a dbt project
+- Warehouse telemetry (5 event types: connect, query, introspection, discovery, census)
+- 340+ new tests including E2E tests against live Snowflake, BigQuery, and Databricks accounts
+- Encrypted key-pair auth support for Snowflake (PKCS8 PEM with passphrase)
+- Comprehensive driver documentation at `docs/docs/drivers.md`
+
+### Fixed
+
+- Python bridge connection failures for UV, conda, and non-standard venv setups (#210)
+- SQL injection in finops/schema queries (parameterized queries + escape utility)
+- Credential store no longer saves plaintext passwords
+- SSH tunnel cleanup on SIGINT/SIGTERM
+- Race condition in connection registry for concurrent access
+- Databricks DATE_SUB syntax
+- Redshift describeTable column name
+- SQL Server describeTable includes views
+- Dispatcher telemetry wrapped in try/catch
+- Flaky test timeouts
+
+### Removed
+
+- `packages/altimate-engine/` — entire Python package (~17,000 lines)
+- `packages/opencode/src/altimate/bridge/` — JSON-RPC bridge
+- `.github/workflows/publish-engine.yml` — PyPI publish workflow
 
 ### Added
 
