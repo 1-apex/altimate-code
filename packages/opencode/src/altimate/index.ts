@@ -1,9 +1,10 @@
 // Barrel export for all Altimate custom code
 
-// Bridge
-export { Bridge } from "./bridge/client"
-export { ensureEngine, enginePythonPath } from "./bridge/engine"
-export * from "./bridge/protocol"
+// Protocol types
+export * from "./native/types"
+
+// Native dispatcher (all 73 methods implemented in TypeScript)
+export { Dispatcher } from "./native"
 
 // Telemetry
 export { Telemetry } from "./telemetry"
