@@ -1,42 +1,98 @@
 <div align="center">
 
-<img src="docs/docs/assets/images/altimate-code-banner.png" alt="altimate-code" width="600" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/docs/assets/images/altimate-code-banner.png" />
+  <img src="docs/docs/assets/images/altimate-code-banner.png" alt="altimate-code" width="600" />
+</picture>
 
-**The data engineering agent for dbt, SQL, and cloud warehouses.**
+**The open-source data engineering harness.**
 
-An AI-powered CLI with 99+ specialized tools — SQL analysis, schema inspection,
-column-level lineage, FinOps, PII detection, and data visualization. Connects to your warehouse,
-understands your data, and helps you ship faster.
+The intelligence layer for data engineering AI — 99+ deterministic tools for SQL analysis,
+column-level lineage, dbt, FinOps, and warehouse connectivity across every major cloud platform.
+
+Run standalone in your terminal, embed underneath Claude Code or Codex, or integrate
+into CI pipelines and orchestration DAGs. Precision data tooling for any LLM.
 
 [![npm](https://img.shields.io/npm/v/@altimateai/altimate-code)](https://www.npmjs.com/package/@altimateai/altimate-code)
 [![npm](https://img.shields.io/npm/v/@altimateai/altimate-core)](https://www.npmjs.com/package/@altimateai/altimate-core)
+[![npm downloads](https://img.shields.io/npm/dm/@altimateai/altimate-code)](https://www.npmjs.com/package/@altimateai/altimate-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![CI](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml/badge.svg)](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-altimate--code.sh-blue)](https://altimate.ai)
+[![Slack](https://img.shields.io/badge/Slack-Join%20Community-4A154B?logo=slack)](https://altimate.ai/slack)
+[![Docs](https://img.shields.io/badge/docs-altimateai.github.io-blue)](https://altimateai.github.io/altimate-code)
 
 </div>
 
 ---
 
-## Why altimate?
+## Install
 
-General-purpose coding agents can write SQL, but they don't *understand* it. They can't trace lineage, detect anti-patterns, check PII exposure, or optimize warehouse costs — because they don't have the tools.
+```bash
+# npm (recommended)
+npm install -g @altimateai/altimate-code
 
-altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt for data teams. It gives any LLM access to 99+ specialized data engineering tools, 12 purpose-built skills, and direct warehouse connectivity — so the AI works with your actual schemas, not guesses.
+# Homebrew
+brew install AltimateAI/tap/altimate-code
+```
 
-## General agents vs altimate
+Then — in order:
+
+**Step 1: Configure your LLM provider** (required before anything works):
+```bash
+altimate        # Launch the TUI
+/connect        # Interactive setup — choose your provider and enter your API key
+```
+
+> **No API key?** Select **Codex** in the `/connect` menu — it's built-in and requires no setup.
+
+Or set an environment variable directly:
+```bash
+export ANTHROPIC_API_KEY=your_key   # Anthropic Claude
+export OPENAI_API_KEY=your_key      # OpenAI
+```
+
+**Step 2 (optional): Auto-detect your data stack** (read-only, safe for production connections):
+```bash
+altimate /discover
+```
+
+`/discover` auto-detects dbt projects, warehouse connections (from `~/.dbt/profiles.yml`, Docker, environment variables), and installed tools (dbt, sqlfluff, airflow, dagster, and more). Skip this and start building — you can always run it later.
+
+> **Zero Python setup required.** On first run, the CLI automatically downloads [`uv`](https://github.com/astral-sh/uv), creates an isolated Python environment, and installs the data engine with all warehouse drivers. No `pip install`, no virtualenv management.
+
+## Why a specialized harness?
+
+General AI coding agents can edit SQL files. They cannot *understand* your data stack.
+altimate gives any LLM a deterministic data engineering intelligence layer —
+no hallucinated SQL advice, no guessing at schema, no missed PII.
 
 | Capability | General coding agents | altimate |
 |---|---|---|
-| SQL anti-pattern detection | None | 19 rules with confidence scoring |
-| Column-level lineage | None | Automatic from SQL |
-| Schema-aware autocomplete | None | Indexes your warehouse metadata |
-| Cross-dialect translation | None | Snowflake, BigQuery, Databricks, Redshift |
-| FinOps analysis | None | Credit analysis, expensive queries, warehouse sizing |
-| PII detection | None | Automatic column scanning |
-| dbt integration | Basic file editing | Manifest parsing, test generation, model scaffolding |
+| SQL anti-pattern detection | None | 19 rules, confidence-scored |
+| Column-level lineage | None | Automatic from SQL, any dialect |
+| Schema-aware autocomplete | None | Live-indexed warehouse metadata |
+| Cross-dialect SQL translation | None | Snowflake ↔ BigQuery ↔ Databricks ↔ Redshift |
+| FinOps & cost analysis | None | Credits, expensive queries, right-sizing |
+| PII detection | None | 30+ regex patterns, 15 categories |
+| dbt integration | Basic file editing | Manifest parsing, test gen, model scaffolding, lineage |
 | Data visualization | None | Auto-generated charts from SQL results |
 | Observability | None | Local-first tracing of AI sessions and tool calls |
+
+> **Benchmarked precision:** 100% F1 on SQL anti-pattern detection (1,077 queries, 19 rules, 0 false positives).
+> 100% edge-match on column-level lineage (500 queries, 13 categories).
+> [See methodology →](experiments/BENCHMARKS.md)
+
+**What the harness provides:**
+- **SQL Intelligence Engine** — deterministic SQL parsing and analysis (not LLM pattern matching). 19 rules, 100% F1, 0 false positives. Built for data engineers who've been burned by hallucinated SQL advice.
+- **Column-Level Lineage** — automatic extraction from SQL across dialects. 100% edge-match on 500 benchmark queries.
+- **Live Warehouse Intelligence** — indexed schemas, query history, and cost data from your actual warehouse. Not guesses.
+- **dbt Native** — manifest parsing, test generation, model scaffolding, medallion patterns, impact analysis
+- **FinOps** — credit consumption, expensive query detection, warehouse right-sizing, idle resource cleanup
+- **PII Detection** — 15 categories, 30+ regex patterns, enforced pre-execution
+
+**Works seamlessly with Claude Code and Codex.** altimate is the data engineering tool layer — use it standalone in your terminal, or mount it as the harness underneath whatever AI agent you already run. The two are complementary.
+
+altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt for data teams. Model-agnostic — bring your own LLM or run locally with Ollama.
 
 ## Quick demo
 
@@ -58,6 +114,8 @@ altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt 
 ```
 
 ## Key Features
+
+All features are deterministic — they parse, trace, and measure. Not LLM pattern matching.
 
 ### SQL Anti-Pattern Detection
 19 rules with confidence scoring — catches SELECT *, cartesian joins, non-sargable predicates, correlated subqueries, and more. **100% accuracy** on 1,077 benchmark queries.
@@ -86,27 +144,6 @@ Built-in observability for AI interactions — trace tool calls, token usage, an
 ### AI Teammate Training
 Teach your AI teammate project-specific patterns, naming conventions, and best practices. The training system learns from examples and applies rules automatically across sessions.
 
-## Install
-
-```bash
-# npm (recommended)
-npm install -g altimate-code
-
-# Homebrew
-brew install AltimateAI/tap/altimate-code
-```
-
-Then:
-
-```bash
-altimate              # Launch the interactive TUI
-altimate /discover    # Auto-detect your data stack and go
-```
-
-> **Note:** `altimate-code` still works as a backward-compatible alias.
-
-`/discover` auto-detects dbt projects, warehouse connections (from `~/.dbt/profiles.yml`, Docker, environment variables), and installed tools (dbt, sqlfluff, airflow, dagster, and more).
-
 ## Agent Modes
 
 Each agent has scoped permissions and purpose-built tools for its role.
@@ -117,7 +154,11 @@ Each agent has scoped permissions and purpose-built tools for its role.
 | **Analyst** | Explore data, run SELECT queries, and generate insights | Read-only enforced |
 | **Validator** | Data quality checks, schema validation, test coverage analysis | Read + validate |
 | **Migrator** | Cross-warehouse SQL translation, schema migration, dialect conversion | Read/write for migrations |
+| **Researcher** | Deep-dive analysis, documentation research, and knowledge extraction | Read-only |
+| **Trainer** | Teach project-specific patterns, naming conventions, and best practices | Read + write training data |
 | **Executive** | Business-audience summaries — translates findings into revenue, cost, and compliance impact | Read-only |
+
+> **New to altimate?** Start with **Analyst mode** — it's read-only and safe to run against production connections.
 
 ## Supported Warehouses
 
@@ -130,6 +171,12 @@ First-class support with schema indexing, query execution, and metadata introspe
 Model-agnostic — bring your own provider or run locally.
 
 Anthropic · OpenAI · Google Gemini · Google Vertex AI · Amazon Bedrock · Azure OpenAI · Mistral · Groq · DeepInfra · Cerebras · Cohere · Together AI · Perplexity · xAI · OpenRouter · Ollama · GitHub Copilot
+
+> **No API key?** **Codex** is a built-in provider with no key required. Select it via `/connect` to start immediately.
+
+## Skills
+
+altimate ships with built-in skills for every common data engineering task — type `/` in the TUI to browse available skills and get autocomplete. No memorization required.
 
 ## Architecture
 
@@ -158,37 +205,31 @@ packages/
   drivers/             Shared database drivers (10 warehouses)
   dbt-tools/           dbt integration (TypeScript)
   plugin/              Plugin system
-  sdk/js/              JavaScript SDK
+  sdk/                 SDKs (includes VS Code extension)
   util/                Shared utilities
 ```
 
-## Documentation
-
-Full docs at **[altimate.ai](https://altimate.ai)**.
-
-- [Getting Started](https://altimate.ai/getting-started/)
-- [SQL Tools](https://altimate.ai/data-engineering/tools/sql-tools/)
-- [Agent Modes](https://altimate.ai/data-engineering/agent-modes/)
-- [Configuration](https://altimate.ai/configure/model-providers/)
-
 ## Community & Contributing
 
-- **Issues**: [GitHub Issues](https://github.com/AltimateAI/altimate-code/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/AltimateAI/altimate-code/discussions)
-- **Security**: See [SECURITY.md](./SECURITY.md)
+- **Slack**: [altimate.ai/slack](https://altimate.ai/slack) — Real-time chat for questions, showcases, and feature discussion
+- **Issues**: [GitHub Issues](https://github.com/AltimateAI/altimate-code/issues) — Bug reports and feature requests
+- **Discussions**: [GitHub Discussions](https://github.com/AltimateAI/altimate-code/discussions) — Long-form questions and proposals
+- **Security**: See [SECURITY.md](./SECURITY.md) for responsible disclosure
 
-Contributions welcome! Please read the [Contributing Guide](./CONTRIBUTING.md) before opening a PR.
+Contributions welcome — docs, SQL rules, warehouse connectors, and TUI improvements are all needed. The contributing guide covers setup, the vouch system, and the issue-first PR policy.
 
-```bash
-git clone https://github.com/AltimateAI/altimate-code.git
-cd altimate-code
-bun install
-```
+**[Read CONTRIBUTING.md →](./CONTRIBUTING.md)**
 
-## Acknowledgements
+## What's New
 
-altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode), the open-source AI coding agent. We build on top of their excellent foundation to add data-team-specific capabilities.
+- **v0.4.1** (March 2026) — env-based skill selection, session caching, tracing improvements
+- **v0.4.0** (Feb 2026) — data visualization skill, 99+ tools, training system
+- **v0.3.x** — [See full changelog →](CHANGELOG.md)
 
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+## Acknowledgements
+
+altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode), the open-source AI coding agent. We build on top of their excellent foundation to add data-team-specific capabilities.
