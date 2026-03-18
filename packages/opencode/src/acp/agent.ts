@@ -45,6 +45,9 @@ import { z } from "zod"
 import { LoadAPIKeyError } from "ai"
 import type { AssistantMessage, Event, OpencodeClient, SessionMessageResponse, ToolPart } from "@opencode-ai/sdk/v2"
 import { applyPatch } from "diff"
+// altimate_change start - yolo mode
+import { Flag } from "@/flag/flag"
+// altimate_change end
 
 type ModeOption = { id: string; name: string; description?: string }
 type ModelOption = { modelId: string; name: string }
@@ -187,6 +190,17 @@ export namespace ACP {
           const permission = event.properties
           const session = this.sessionManager.tryGet(permission.sessionID)
           if (!session) return
+
+          // altimate_change start - yolo mode: auto-approve without asking ACP client
+          if (Flag.ALTIMATE_CLI_YOLO) {
+            await this.sdk.permission.reply({
+              requestID: permission.id,
+              reply: "once",
+              directory: session.cwd,
+            })
+            return
+          }
+          // altimate_change end
 
           const prev = this.permissionQueues.get(permission.sessionID) ?? Promise.resolve()
           const next = prev

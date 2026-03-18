@@ -664,15 +664,30 @@ You are speaking to a non-technical business executive. Follow these rules stric
           if (event.type === "permission.asked") {
             const permission = event.properties
             if (permission.sessionID !== sessionID) continue
-            UI.println(
-              UI.Style.TEXT_WARNING_BOLD + "!",
-              UI.Style.TEXT_NORMAL +
-                `permission requested: ${permission.permission} (${permission.patterns.join(", ")}); auto-rejecting`,
-            )
-            await sdk.permission.reply({
-              requestID: permission.id,
-              reply: "reject",
-            })
+            // altimate_change start - yolo mode: auto-approve instead of auto-reject
+            const yolo = args.yolo || Flag.ALTIMATE_CLI_YOLO
+            if (yolo) {
+              UI.println(
+                UI.Style.TEXT_WARNING_BOLD + "!",
+                UI.Style.TEXT_NORMAL +
+                  `yolo mode: auto-approved ${permission.permission} (${permission.patterns.join(", ")})`,
+              )
+              await sdk.permission.reply({
+                requestID: permission.id,
+                reply: "once",
+              })
+            } else {
+              UI.println(
+                UI.Style.TEXT_WARNING_BOLD + "!",
+                UI.Style.TEXT_NORMAL +
+                  `permission requested: ${permission.permission} (${permission.patterns.join(", ")}); auto-rejecting`,
+              )
+              await sdk.permission.reply({
+                requestID: permission.id,
+                reply: "reject",
+              })
+            }
+            // altimate_change end
           }
         }
       }

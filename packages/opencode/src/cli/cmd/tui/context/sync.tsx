@@ -27,6 +27,9 @@ import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
+// altimate_change start - yolo mode
+import { Flag } from "@/flag/flag"
+// altimate_change end
 import type { Path } from "@opencode-ai/sdk"
 import type { Workspace } from "@opencode-ai/sdk/v2"
 
@@ -136,6 +139,22 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "permission.asked": {
           const request = event.properties
+          // altimate_change start - yolo mode: auto-approve without showing prompt
+          if (Flag.ALTIMATE_CLI_YOLO) {
+            sdk.client.permission
+              .reply({
+                requestID: request.id,
+                reply: "once",
+              })
+              .catch((e) => {
+                Log.Default.error("yolo mode auto-approve failed", {
+                  error: e instanceof Error ? e.message : String(e),
+                  requestID: request.id,
+                })
+              })
+            break
+          }
+          // altimate_change end
           const requests = store.permission[request.sessionID]
           if (!requests) {
             setStore("permission", request.sessionID, [request])

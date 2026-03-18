@@ -36,6 +36,11 @@ export namespace Flag {
   // altimate_change start - opt-in for session-end auto-extraction
   export const ALTIMATE_MEMORY_AUTO_EXTRACT = altTruthy("ALTIMATE_MEMORY_AUTO_EXTRACT", "OPENCODE_MEMORY_AUTO_EXTRACT")
   // altimate_change end
+  // altimate_change start - yolo mode: auto-approve all permission prompts
+  // Declared here, defined via dynamic getter below (must evaluate at access time
+  // because --yolo CLI flag sets the env var in middleware after module load)
+  export declare const ALTIMATE_CLI_YOLO: boolean
+  // altimate_change end
   // altimate_change start - opt-out for AI Teammate training system
   export const ALTIMATE_DISABLE_TRAINING = altTruthy("ALTIMATE_DISABLE_TRAINING", "OPENCODE_DISABLE_TRAINING")
   // altimate_change end
@@ -138,6 +143,23 @@ Object.defineProperty(Flag, "OPENCODE_CLIENT", {
   enumerable: true,
   configurable: false,
 })
+
+// altimate_change start - yolo mode: dynamic getter (set at runtime via --yolo flag)
+// ALTIMATE_CLI_YOLO is authoritative when defined; only falls back to OPENCODE_YOLO when undefined
+Object.defineProperty(Flag, "ALTIMATE_CLI_YOLO", {
+  get() {
+    const alt = process.env["ALTIMATE_CLI_YOLO"]
+    if (alt !== undefined) {
+      const v = alt.toLowerCase()
+      return v === "true" || v === "1"
+    }
+    const oc = process.env["OPENCODE_YOLO"]?.toLowerCase()
+    return oc === "true" || oc === "1"
+  },
+  enumerable: true,
+  configurable: false,
+})
+// altimate_change end
 
 // altimate_change start - ALTIMATE_CLI_CLIENT with OPENCODE_CLIENT fallback
 Object.defineProperty(Flag, "ALTIMATE_CLI_CLIENT", {

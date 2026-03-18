@@ -78,6 +78,13 @@ let cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  // altimate_change start - yolo mode as global flag
+  .option("yolo", {
+    describe: "auto-approve all permission prompts (explicit deny rules still enforced)",
+    type: "boolean",
+    default: false,
+  })
+  // altimate_change end
   .middleware(async (opts) => {
     await Log.init({
       print: process.argv.includes("--print-logs"),
@@ -94,6 +101,12 @@ let cli = yargs(hideBin(process.argv))
     process.env.OPENCODE_PID = String(process.pid)
     // altimate_change start - datapilot env var
     process.env.DATAPILOT = "1"
+    // altimate_change end
+
+    // altimate_change start - propagate --yolo flag to env var so Flag.ALTIMATE_CLI_YOLO picks it up
+    if ("yolo" in opts && opts.yolo) {
+      process.env.ALTIMATE_CLI_YOLO = "true"
+    }
     // altimate_change end
 
     // altimate_change start - telemetry init
