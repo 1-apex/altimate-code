@@ -30,6 +30,7 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { Tracer } from "@/altimate/observability/tracing"
 import { renderTraceViewer } from "@/altimate/observability/viewer"
+import { DialogTraceList } from "./component/dialog-trace-list"
 import fsAsync from "fs/promises"
 
 // altimate_change start - shared trace viewer server
@@ -45,8 +46,14 @@ function getTraceViewerUrl(sessionID: string): string {
         // Extract session ID from path: /view/<sessionID> or /api/<sessionID>
         const parts = url.pathname.split("/").filter(Boolean)
         const action = parts[0] // "view" or "api"
-        const sid = parts[1]
-        if (!sid) return new Response("Usage: /view/<sessionID>", { status: 400 })
+        const encodedSid = parts[1]
+        if (!encodedSid) return new Response("Usage: /view/<sessionID>", { status: 400 })
+        let sid: string
+        try {
+          sid = decodeURIComponent(encodedSid)
+        } catch {
+          return new Response("Invalid session ID encoding", { status: 400 })
+        }
 
         const safeId = sid.replace(/[/\\.:]/g, "_")
         const traceFile = `${tracesDir}/${safeId}.json`
@@ -65,7 +72,7 @@ function getTraceViewerUrl(sessionID: string): string {
         // Serve HTML viewer
         try {
           const trace = JSON.parse(await fsAsync.readFile(traceFile, "utf-8"))
-          const html = renderTraceViewer(trace, { live: true, apiPath: "/api/" + sid })
+          const html = renderTraceViewer(trace, { live: true, apiPath: "/api/" + encodeURIComponent(sid) })
           return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } })
         } catch {
           return new Response("Trace not found. Try again after the agent responds.", { status: 404 })
@@ -73,7 +80,7 @@ function getTraceViewerUrl(sessionID: string): string {
       },
     })
   }
-  return `http://localhost:${traceViewerServer.port}/view/${sessionID}`
+  return `http://127.0.0.1:${traceViewerServer.port}/view/${encodeURIComponent(sessionID)}`
 }
 
 // altimate_change end — renderInlineViewer removed, now using renderTraceViewer from viewer.ts
@@ -264,6 +271,26 @@ function App() {
   const sync = useSync()
   const exit = useExit()
   const promptRef = usePromptRef()
+
+  // altimate_change start - shared trace viewer helper
+  async function openTraceInBrowser(sessionID: string) {
+    try {
+      // Check if trace file exists on disk before opening browser
+      const safeId = sessionID.replace(/[/\\.:]/g, "_")
+      const traceFile = `${Tracer.getTracesDir()}/${safeId}.json`
+      const exists = await fsAsync.access(traceFile).then(() => true).catch(() => false)
+      if (!exists) {
+        toast.show({ variant: "warning", message: "Trace not available yet — send a prompt first", duration: 4000 })
+        return
+      }
+      const url = getTraceViewerUrl(sessionID)
+      await open(url)
+      toast.show({ variant: "info", message: `Trace viewer: ${url}`, duration: 6000 })
+    } catch {
+      toast.show({ variant: "warning", message: `Failed to open browser. Trace files: ${Tracer.getTracesDir()}`, duration: 8000 })
+    }
+  }
+  // altimate_change end
 
   useKeyboard((evt) => {
     if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
@@ -643,40 +670,25 @@ function App() {
       onSelect: () => exit(),
       category: "System",
     },
+    // altimate_change start - trace history command
     {
-      title: "View session trace",
+      title: "View traces",
       value: "trace.view",
       category: "Debug",
       slash: {
         name: "trace",
       },
       onSelect: (dialog) => {
-        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
-        if (!sessionID) {
-          toast.show({ variant: "warning", message: "No active session to trace", duration: 3000 })
-          dialog.clear()
-          return
-        }
-        try {
-          const url = getTraceViewerUrl(sessionID)
-          const openArgs = process.platform === "darwin" ? ["open", url] : process.platform === "win32" ? ["cmd", "/c", "start", url] : ["xdg-open", url]
-          Bun.spawn(openArgs, { stdout: "ignore", stderr: "ignore" })
-          toast.show({
-            variant: "info",
-            message: `Trace viewer: ${url}`,
-            duration: 6000,
-          })
-        } catch (e) {
-          // Show the trace directory so user can find the file manually
-          toast.show({
-            variant: "info",
-            message: `Trace files: ${Tracer.getTracesDir()}`,
-            duration: 8000,
-          })
-        }
-        dialog.clear()
+        const currentSessionID = route.data.type === "session" ? route.data.sessionID : undefined
+        dialog.replace(() => (
+          <DialogTraceList
+            currentSessionID={currentSessionID}
+            onSelect={openTraceInBrowser}
+          />
+        ))
       },
     },
+    // altimate_change end
     {
       title: "Toggle debug panel",
       category: "System",
