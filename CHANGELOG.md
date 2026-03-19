@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-03-19
+
+### Added
+
+- Trace history dialog (`/trace` command) — browse, search, and open past session traces from the TUI (#297)
+- Docs showcase examples with screenshots (#292)
+
+### Fixed
+
+- TUI trace dialog now respects custom `tracing.dir` config — previously always used default directory (#307)
+- WebFetch `clearTimeout` leak — DNS failures no longer leak timer handles (#307)
+- WebFetch User-Agent strategy inverted to honest-bot-first — reduces 403 blocks from TLS fingerprint mismatch (#303)
+- Snowflake SDK stdout log noise suppressed in TUI via `additionalLogToConsole: false` (#305, #301)
+- `cleanTitle` fallback in trace dialog no longer returns empty string (#307)
+- Error logging added to `openTraceInBrowser` for debuggability (#307)
+- `altimate_change` markers added to `webfetch.ts` for upstream merge compatibility (#307)
+
+### Changed
+
+- Snowflake SDK minimum version bumped to `^2.0.3` for log suppression support (#305)
+- Removed brew from docs and README (#299)
+- Fixed README typo (`altimate` → `altimate-code`) (#293)
+
 ## [0.5.1] - 2026-03-19
 
 ### Added

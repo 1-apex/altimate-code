@@ -1,18 +1,3 @@
-fix: address multi-model code review findings for recent merges
-
-- Fix TUI trace dialog ignoring custom `tracing.dir` config — plumb
-  config dir through `DialogTraceList`, `getTraceViewerUrl`, and
-  `openTraceInBrowser` so custom trace directories work in the TUI
-- Fix WebFetch `clearTimeout` leak — move both `fetch` calls inside the
-  `try` block so the `finally` clause always clears the timer, even on
-  DNS failures or `AbortError`
-- Fix `cleanTitle` empty string fallback — add `"(Untitled)"` as final
-  fallback when all parsing yields empty
-- Add error logging to `openTraceInBrowser` — log actual error before
-  showing toast so failures are debuggable
-- Add `altimate_change` markers around `HONEST_UA` branding constant in
-  `webfetch.ts` for upstream merge compatibility
-- Update tracing docs for new `/trace` dialog behavior
-- Update TUI docs to include `/trace` in slash command examples
+release: v0.5.2
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
