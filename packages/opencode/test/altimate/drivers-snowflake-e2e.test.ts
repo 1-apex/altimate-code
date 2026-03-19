@@ -49,7 +49,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
   describe("Password Auth", () => {
     test("connects successfully with password", async () => {
       const result = await connector.execute("SELECT CURRENT_USER() AS u")
-      expect(result.columns).toEqual(["U"])
+      expect(result.columns).toEqual(["u"])
       expect(result.rows.length).toBe(1)
       expect(typeof result.rows[0][0]).toBe("string")
     })
@@ -76,7 +76,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
   describe("Query Execution", () => {
     test("SELECT literal integer", async () => {
       const r = await connector.execute("SELECT 1 AS n")
-      expect(r.columns).toEqual(["N"])
+      expect(r.columns).toEqual(["n"])
       expect(r.rows).toEqual([[1]])
       expect(r.row_count).toBe(1)
       expect(r.truncated).toBe(false)
@@ -103,7 +103,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
       const r = await connector.execute(
         "SELECT 1 AS a, 'b' AS b, TRUE AS c, NULL AS d",
       )
-      expect(r.columns).toEqual(["A", "B", "C", "D"])
+      expect(r.columns).toEqual(["a", "b", "c", "d"])
       expect(r.rows[0][0]).toBe(1)
       expect(r.rows[0][1]).toBe("b")
       expect(r.rows[0][2]).toBe(true)
@@ -203,7 +203,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
         "SELECT * FROM _altimate_sf_e2e_test ORDER BY id",
       )
       expect(r.row_count).toBe(3)
-      expect(r.columns).toEqual(["ID", "NAME", "ACTIVE"])
+      expect(r.columns).toEqual(["id", "name", "active"])
     })
 
     test("UPDATE row", async () => {
@@ -239,7 +239,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
       const r = await connector.execute(
         "SELECT ARRAY_CONSTRUCT(1, 2, 3) AS arr, OBJECT_CONSTRUCT('key', 'value') AS obj",
       )
-      expect(r.columns).toEqual(["ARR", "OBJ"])
+      expect(r.columns).toEqual(["arr", "obj"])
       expect(r.rows.length).toBe(1)
     })
 
@@ -247,7 +247,7 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
       const r = await connector.execute(
         "SELECT CURRENT_DATE() AS d, CURRENT_TIME() AS t, CURRENT_TIMESTAMP() AS ts",
       )
-      expect(r.columns).toEqual(["D", "T", "TS"])
+      expect(r.columns).toEqual(["d", "t", "ts"])
     })
 
     test("BOOLEAN", async () => {
@@ -325,6 +325,132 @@ describe.skipIf(!HAS_SNOWFLAKE)("Snowflake Driver E2E", () => {
     test("SHOW SCHEMAS in current database", async () => {
       const r = await connector.execute("SHOW SCHEMAS IN DATABASE TENANT_INFORMATICA_MIGRATION")
       expect(r.row_count).toBeGreaterThan(0)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Bind Parameters
+  // ---------------------------------------------------------------------------
+  describe("Bind Parameters", () => {
+    beforeAll(async () => {
+      await connector.execute(`
+        CREATE OR REPLACE TEMPORARY TABLE _altimate_binds_test (
+          id INTEGER,
+          name VARCHAR,
+          score FLOAT,
+          active BOOLEAN,
+          created_at TIMESTAMP_NTZ
+        )
+      `)
+      await connector.execute(`
+        INSERT INTO _altimate_binds_test VALUES
+          (1, 'alice', 9.5, true, '2024-01-01 10:00:00'),
+          (2, 'bob',   7.2, false, '2024-06-15 12:30:00'),
+          (3, 'carol', 8.8, true, '2024-12-31 23:59:59')
+      `)
+    }, 30000)
+
+    afterAll(async () => {
+      try { await connector.execute("DROP TABLE IF EXISTS _altimate_binds_test") } catch {}
+    })
+
+    test("binds a single string parameter", async () => {
+      const result = await connector.execute(
+        "SELECT name FROM _altimate_binds_test WHERE name = ?",
+        undefined,
+        ["alice"],
+      )
+      expect(result.columns).toEqual(["name"])
+      expect(result.rows).toHaveLength(1)
+      expect(result.rows[0][0]).toBe("alice")
+    })
+
+    test("binds a single integer parameter", async () => {
+      const result = await connector.execute(
+        "SELECT id, name FROM _altimate_binds_test WHERE id = ?",
+        undefined,
+        [2],
+      )
+      expect(result.rows).toHaveLength(1)
+      expect(result.rows[0][1]).toBe("bob")
+    })
+
+    test("binds multiple parameters", async () => {
+      const result = await connector.execute(
+        "SELECT name FROM _altimate_binds_test WHERE id >= ? AND id <= ? ORDER BY id",
+        undefined,
+        [1, 2],
+      )
+      expect(result.rows).toHaveLength(2)
+      expect(result.rows[0][0]).toBe("alice")
+      expect(result.rows[1][0]).toBe("bob")
+    })
+
+    test("binds a float parameter", async () => {
+      const result = await connector.execute(
+        "SELECT name FROM _altimate_binds_test WHERE score > ? ORDER BY score DESC",
+        undefined,
+        [9.0],
+      )
+      expect(result.rows).toHaveLength(1)
+      expect(result.rows[0][0]).toBe("alice")
+    })
+
+    test("returns no rows when bind value matches nothing", async () => {
+      const result = await connector.execute(
+        "SELECT * FROM _altimate_binds_test WHERE name = ?",
+        undefined,
+        ["nobody"],
+      )
+      expect(result.rows).toHaveLength(0)
+      expect(result.row_count).toBe(0)
+    })
+
+    test("empty binds array behaves same as no binds", async () => {
+      const withEmpty = await connector.execute(
+        "SELECT COUNT(*) AS n FROM _altimate_binds_test",
+        undefined,
+        [],
+      )
+      const withNone = await connector.execute("SELECT COUNT(*) AS n FROM _altimate_binds_test")
+      expect(withEmpty.rows[0][0]).toBe(withNone.rows[0][0])
+    })
+
+    test("prevents SQL injection via binding", async () => {
+      const result = await connector.execute(
+        "SELECT name FROM _altimate_binds_test WHERE name = ?",
+        undefined,
+        ["' OR '1'='1"],
+      )
+      expect(result.rows).toHaveLength(0)
+    })
+
+    test("binds work alongside auto-LIMIT truncation", async () => {
+      const result = await connector.execute(
+        "SELECT seq4() AS id FROM TABLE(GENERATOR(ROWCOUNT => 200)) WHERE seq4() >= ?",
+        100,
+        [0],
+      )
+      expect(result.truncated).toBe(true)
+      expect(result.rows).toHaveLength(100)
+    })
+
+    test("scalar bind — SELECT ? returns the bound value", async () => {
+      const result = await connector.execute("SELECT ? AS val", undefined, [42])
+      expect(result.columns).toEqual(["val"])
+      expect(result.rows[0][0]).toBe(42)
+    })
+
+    test("binds a string with special characters", async () => {
+      const special = "O'Brien & \"Partners\" <test@example.com>"
+      const result = await connector.execute("SELECT ? AS val", undefined, [special])
+      expect(result.rows[0][0]).toBe(special)
+    })
+
+    test("binds a Unicode string", async () => {
+      const unicode = "日本語テスト"
+      const result = await connector.execute("SELECT ? AS val", undefined, [unicode])
+      expect(result.rows[0][0]).toBe(unicode)
     })
   })
 })

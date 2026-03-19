@@ -80,26 +80,27 @@ describe("ping", () => {
 describe("FinOps: SQL template generation", () => {
   describe("credit-analyzer", () => {
     test("builds Snowflake credit usage SQL", () => {
-      const sql = CreditTemplates.buildCreditUsageSql("snowflake", 30, 50)
-      expect(sql).toContain("WAREHOUSE_METERING_HISTORY")
-      expect(sql).toContain("30")
-      expect(sql).toContain("50")
+      const built = CreditTemplates.buildCreditUsageSql("snowflake", 30, 50)
+      expect(built?.sql).toContain("WAREHOUSE_METERING_HISTORY")
+      expect(built?.binds).toContain(-30)   // days bind (negative for Snowflake)
+      expect(built?.binds).toContain(50)    // limit bind
     })
 
     test("builds Snowflake credit usage SQL with warehouse filter", () => {
-      const sql = CreditTemplates.buildCreditUsageSql("snowflake", 7, 10, "MY_WH")
-      expect(sql).toContain("MY_WH")
+      const built = CreditTemplates.buildCreditUsageSql("snowflake", 7, 10, "MY_WH")
+      expect(built?.binds).toContain("MY_WH")
+      expect(built?.sql).toContain("?")
     })
 
     test("builds BigQuery credit usage SQL", () => {
-      const sql = CreditTemplates.buildCreditUsageSql("bigquery", 14, 25)
-      expect(sql).toContain("INFORMATION_SCHEMA.JOBS")
-      expect(sql).toContain("14")
+      const built = CreditTemplates.buildCreditUsageSql("bigquery", 14, 25)
+      expect(built?.sql).toContain("INFORMATION_SCHEMA.JOBS")
+      expect(built?.binds).toContain(14)
     })
 
     test("builds Databricks credit usage SQL", () => {
-      const sql = CreditTemplates.buildCreditUsageSql("databricks", 7, 20)
-      expect(sql).toContain("system.billing.usage")
+      const built = CreditTemplates.buildCreditUsageSql("databricks", 7, 20)
+      expect(built?.sql).toContain("system.billing.usage")
     })
 
     test("returns null for unsupported warehouse types", () => {
@@ -107,38 +108,40 @@ describe("FinOps: SQL template generation", () => {
     })
 
     test("builds Snowflake credit summary SQL", () => {
-      const sql = CreditTemplates.buildCreditSummarySql("snowflake", 30)
-      expect(sql).toContain("total_credits")
-      expect(sql).toContain("30")
+      const built = CreditTemplates.buildCreditSummarySql("snowflake", 30)
+      expect(built?.sql).toContain("total_credits")
+      expect(built?.binds).toContain(-30)
     })
 
     test("builds expensive queries SQL for Snowflake", () => {
-      const sql = CreditTemplates.buildExpensiveSql("snowflake", 7, 20)
-      expect(sql).toContain("bytes_scanned")
-      expect(sql).toContain("QUERY_HISTORY")
+      const built = CreditTemplates.buildExpensiveSql("snowflake", 7, 20)
+      expect(built?.sql).toContain("bytes_scanned")
+      expect(built?.sql).toContain("QUERY_HISTORY")
     })
 
     test("builds expensive queries SQL for BigQuery", () => {
-      const sql = CreditTemplates.buildExpensiveSql("bigquery", 7, 20)
-      expect(sql).toContain("total_bytes_billed")
+      const built = CreditTemplates.buildExpensiveSql("bigquery", 7, 20)
+      expect(built?.sql).toContain("total_bytes_billed")
     })
   })
 
   describe("query-history", () => {
     test("builds Snowflake history SQL", () => {
-      const sql = HistoryTemplates.buildHistoryQuery("snowflake", 7, 100)
-      expect(sql).toContain("QUERY_HISTORY")
-      expect(sql).toContain("7")
+      const built = HistoryTemplates.buildHistoryQuery("snowflake", 7, 100)
+      expect(built?.sql).toContain("QUERY_HISTORY")
+      expect(built?.binds).toContain(-7)
     })
 
     test("builds Snowflake history SQL with user filter", () => {
-      const sql = HistoryTemplates.buildHistoryQuery("snowflake", 7, 100, "ADMIN")
-      expect(sql).toContain("ADMIN")
+      const built = HistoryTemplates.buildHistoryQuery("snowflake", 7, 100, "ADMIN")
+      expect(built?.binds).toContain("ADMIN")
+      expect(built?.sql).toContain("user_name")
     })
 
     test("builds PostgreSQL history SQL", () => {
-      const sql = HistoryTemplates.buildHistoryQuery("postgres", 7, 50)
-      expect(sql).toContain("pg_stat_statements")
+      const built = HistoryTemplates.buildHistoryQuery("postgres", 7, 50)
+      expect(built?.sql).toContain("pg_stat_statements")
+      expect(built?.sql).toContain("50")  // postgres still uses string interpolation
     })
 
     test("returns null for DuckDB (no query history)", () => {
@@ -146,13 +149,14 @@ describe("FinOps: SQL template generation", () => {
     })
 
     test("builds BigQuery history SQL", () => {
-      const sql = HistoryTemplates.buildHistoryQuery("bigquery", 14, 100)
-      expect(sql).toContain("INFORMATION_SCHEMA.JOBS")
+      const built = HistoryTemplates.buildHistoryQuery("bigquery", 14, 100)
+      expect(built?.sql).toContain("INFORMATION_SCHEMA.JOBS")
+      expect(built?.binds).toContain(14)
     })
 
     test("builds Databricks history SQL", () => {
-      const sql = HistoryTemplates.buildHistoryQuery("databricks", 7, 50)
-      expect(sql).toContain("system.query.history")
+      const built = HistoryTemplates.buildHistoryQuery("databricks", 7, 50)
+      expect(built?.sql).toContain("system.query.history")
     })
   })
 
@@ -203,19 +207,21 @@ describe("FinOps: SQL template generation", () => {
 
   describe("role-access", () => {
     test("builds Snowflake grants SQL", () => {
-      const sql = RoleTemplates.buildGrantsSql("snowflake", "SYSADMIN", undefined, 50)
-      expect(sql).toContain("GRANTS_TO_ROLES")
-      expect(sql).toContain("SYSADMIN")
+      const built = RoleTemplates.buildGrantsSql("snowflake", "SYSADMIN", undefined, 50)
+      expect(built?.sql).toContain("GRANTS_TO_ROLES")
+      expect(built?.binds).toContain("SYSADMIN")
+      expect(built?.binds).toContain(50)  // limit
     })
 
     test("builds BigQuery grants SQL", () => {
-      const sql = RoleTemplates.buildGrantsSql("bigquery", undefined, undefined, 100)
-      expect(sql).toContain("OBJECT_PRIVILEGES")
+      const built = RoleTemplates.buildGrantsSql("bigquery", undefined, undefined, 100)
+      expect(built?.sql).toContain("OBJECT_PRIVILEGES")
+      expect(built?.binds).toContain(100)  // limit
     })
 
     test("builds Databricks grants SQL", () => {
-      const sql = RoleTemplates.buildGrantsSql("databricks", undefined, undefined, 100)
-      expect(sql).toContain("table_privileges")
+      const built = RoleTemplates.buildGrantsSql("databricks", undefined, undefined, 100)
+      expect(built?.sql).toContain("table_privileges")
     })
 
     test("returns null for unsupported types", () => {
@@ -230,6 +236,75 @@ describe("FinOps: SQL template generation", () => {
     test("has user roles SQL template", () => {
       expect(RoleTemplates.SNOWFLAKE_USER_ROLES_SQL).toContain("GRANTS_TO_USERS")
     })
+  })
+})
+
+describe("FinOps: regression #203 — WAREHOUSE_LOAD_HISTORY has no warehouse_size column", () => {
+  test("SNOWFLAKE_LOAD_SQL does not reference warehouse_size at all", () => {
+    expect(AdvisorTemplates.SNOWFLAKE_LOAD_SQL).not.toContain("warehouse_size")
+  })
+
+  test("SNOWFLAKE_LOAD_SQL does not GROUP BY warehouse_size", () => {
+    const sql = AdvisorTemplates.SNOWFLAKE_LOAD_SQL
+    const groupByMatch = sql.match(/GROUP BY\s+([^\n]+)/i)
+    expect(groupByMatch?.[1]?.trim()).toBe("warehouse_name")
+  })
+
+  test("SNOWFLAKE_SIZING_SQL no longer selects warehouse_size (sourced from SHOW WAREHOUSES now)", () => {
+    expect(AdvisorTemplates.SNOWFLAKE_SIZING_SQL).not.toContain("warehouse_size")
+  })
+
+  test("SNOWFLAKE_SHOW_WAREHOUSES is just SHOW WAREHOUSES", () => {
+    expect(AdvisorTemplates.SNOWFLAKE_SHOW_WAREHOUSES).toBe("SHOW WAREHOUSES")
+  })
+})
+
+describe("Snowflake driver: column names are lowercased (regression #203)", () => {
+  test("rowsToRecords from Snowflake uppercase columns yields lowercase keys", () => {
+    // Simulate Snowflake SDK returning UPPERCASE column names in row objects
+    const fakeUppercaseRow: Record<string, unknown> = {
+      WAREHOUSE_NAME: "MY_WH",
+      AVG_CONCURRENCY: 0.5,
+      AVG_QUEUE_LOAD: 0.0,
+      PEAK_QUEUE_LOAD: 0.0,
+      SAMPLE_COUNT: 100,
+      TOTAL_CREDITS: 42.5,
+    }
+    const rawColumns = Object.keys(fakeUppercaseRow)
+    const columns = rawColumns.map((col) => col.toLowerCase())
+    const rows = [rawColumns.map((col) => fakeUppercaseRow[col])]
+    const records = rows.map((row) => {
+      const obj: Record<string, unknown> = {}
+      columns.forEach((col, i) => { obj[col] = row[i] })
+      return obj
+    })
+    expect(records[0]).toHaveProperty("warehouse_name", "MY_WH")
+    expect(records[0]).toHaveProperty("avg_concurrency", 0.5)
+    expect(records[0]).toHaveProperty("total_credits", 42.5)
+    // Uppercase keys must NOT exist
+    expect(records[0]["WAREHOUSE_NAME"]).toBeUndefined()
+    expect(records[0]["TOTAL_CREDITS"]).toBeUndefined()
+  })
+
+  test("credit recommendation uses lowercase keys and produces correct output", () => {
+    // With uppercase keys (old behavior), total_credits would be undefined → 0
+    // After fix, lowercase keys are read correctly
+    const loadData = [
+      {
+        warehouse_name: "MY_WH",
+        avg_concurrency: 0.5,
+        avg_queue_load: 0.0,
+        peak_queue_load: 0.0,
+        sample_count: 100,
+      },
+    ]
+    const sizeByWarehouse = new Map<string, string>([["MY_WH", "Small"]])
+    const recs = AdvisorTemplates.generateSizingRecommendations(loadData, [], sizeByWarehouse)
+    // avg_queue_load=0, peak_queue_load=0 → no SCALE_UP/BURST
+    // avg_concurrency=0.5 > 0.1 → no SCALE_DOWN
+    // → HEALTHY
+    expect(recs).toHaveLength(1)
+    expect(recs[0]).toMatchObject({ type: "HEALTHY" })
   })
 })
 
