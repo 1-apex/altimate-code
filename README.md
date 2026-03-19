@@ -14,10 +14,8 @@ Run standalone in your terminal, embed underneath Claude Code or Codex, or integ
 into CI pipelines and orchestration DAGs. Precision data tooling for any LLM.
 
 [![npm](https://img.shields.io/npm/v/altimate-code)](https://www.npmjs.com/package/altimate-code)
-[![npm downloads](https://img.shields.io/npm/dm/altimate-code)](https://www.npmjs.com/package/altimate-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![CI](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml/badge.svg)](https://github.com/AltimateAI/altimate-code/actions/workflows/ci.yml)
-[![Slack](https://img.shields.io/badge/Slack-Join%20Community-4A154B?logo=slack)](https://altimate.ai/slack)
+[![Slack](https://img.shields.io/badge/Slack-Join%20Community-4A154B?logo=slack)](https://altimate.studio/join-agentic-data-engineering-slack)
 [![Docs](https://img.shields.io/badge/docs-docs.altimate.sh-blue)](https://docs.altimate.sh)
 
 </div>
@@ -42,8 +40,6 @@ altimate        # Launch the TUI
 /connect        # Interactive setup — choose your provider and enter your API key
 ```
 
-> **No API key?** Select **Codex** in the `/connect` menu — it's built-in and requires no setup.
-
 Or set an environment variable directly:
 ```bash
 export ANTHROPIC_API_KEY=your_key   # Anthropic Claude
@@ -56,6 +52,8 @@ altimate /discover
 ```
 
 `/discover` auto-detects dbt projects, warehouse connections (from `~/.dbt/profiles.yml`, Docker, environment variables), and installed tools (dbt, sqlfluff, airflow, dagster, and more). Skip this and start building — you can always run it later.
+
+> **Headless / scripted usage:** `altimate --yolo` auto-approves all permission prompts. Not recommended with live warehouse connections.
 
 > **Zero additional setup.** One command install.
 
@@ -89,7 +87,7 @@ no hallucinated SQL advice, no guessing at schema, no missed PII.
 - **FinOps** — credit consumption, expensive query detection, warehouse right-sizing, idle resource cleanup
 - **PII Detection** — 15 categories, 30+ regex patterns, enforced pre-execution
 
-**Works seamlessly with Claude Code and Codex.** altimate is the data engineering tool layer — use it standalone in your terminal, or mount it as the harness underneath whatever AI agent you already run. The two are complementary.
+**Works seamlessly with Claude Code and Codex.** Use `/configure-claude` or `/configure-codex` to set up integration in one step. altimate is the data engineering tool layer — use it standalone in your terminal, or mount it as the harness underneath whatever AI agent you already run. The two are complementary.
 
 altimate is a fork of [OpenCode](https://github.com/anomalyco/opencode) rebuilt for data teams. Model-agnostic — bring your own LLM or run locally with Ollama.
 
@@ -145,19 +143,15 @@ Teach your AI teammate project-specific patterns, naming conventions, and best p
 
 ## Agent Modes
 
-Each agent has scoped permissions and purpose-built tools for its role.
+Each mode has scoped permissions, tool access, and SQL write-access control.
 
-| Agent | Role | Access |
+| Mode | Role | Access |
 |---|---|---|
-| **Builder** | Create dbt models, SQL pipelines, and data transformations | Full read/write |
-| **Analyst** | Explore data, run SELECT queries, and generate insights | Read-only enforced |
-| **Validator** | Data quality checks, schema validation, test coverage analysis | Read + validate |
-| **Migrator** | Cross-warehouse SQL translation, schema migration, dialect conversion | Read/write for migrations |
-| **Researcher** | Deep-dive analysis, documentation research, and knowledge extraction | Read-only |
-| **Trainer** | Teach project-specific patterns, naming conventions, and best practices | Read + write training data |
-| **Executive** | Business-audience summaries — translates findings into revenue, cost, and compliance impact | Read-only |
+| **Builder** | Create dbt models, SQL pipelines, and data transformations | Full read/write (write SQL prompts for approval; `DROP DATABASE`/`DROP SCHEMA`/`TRUNCATE` hard-blocked) |
+| **Analyst** | Explore data, run SELECT queries, FinOps analysis, and generate insights | Read-only enforced (SELECT only, no file writes) |
+| **Plan** | Outline an approach before acting | Minimal (read files only, no SQL or bash) |
 
-> **New to altimate?** Start with **Analyst mode** — it's read-only and safe to run against production connections.
+> **New to altimate?** Start with **Analyst mode** — it's read-only and safe to run against production connections. Need specialized workflows (validation, migration, research)? Create [custom agent modes](https://docs.altimate.sh).
 
 ## Supported Warehouses
 
@@ -171,46 +165,13 @@ Model-agnostic — bring your own provider or run locally.
 
 Anthropic · OpenAI · Google Gemini · Google Vertex AI · Amazon Bedrock · Azure OpenAI · Mistral · Groq · DeepInfra · Cerebras · Cohere · Together AI · Perplexity · xAI · OpenRouter · Ollama · GitHub Copilot
 
-> **No API key?** **Codex** is a built-in provider with no key required. Select it via `/connect` to start immediately.
-
 ## Skills
 
 altimate ships with built-in skills for every common data engineering task — type `/` in the TUI to browse available skills and get autocomplete. No memorization required.
 
-## Architecture
-
-```
-altimate (TypeScript CLI)
-        |
-   @altimateai/altimate-core (napi-rs → Rust)
-   SQL analysis, lineage, PII, safety — 45 functions, ~2ms per call
-        |
-   Native Node.js drivers
-   10 warehouses: Snowflake, BigQuery, PostgreSQL, Databricks,
-   Redshift, MySQL, SQL Server, Oracle, DuckDB, SQLite
-```
-
-The CLI handles AI interactions, TUI, and tool orchestration. SQL analysis is powered by the Rust-based `@altimateai/altimate-core` engine via napi-rs bindings (no Python required). Database connectivity uses native Node.js drivers with lazy loading.
-
-**No Python dependency**: All 73 tool methods run natively in TypeScript. No pip, venv, or Python installation needed.
-
-**dbt-first**: When working in a dbt project, the CLI automatically uses dbt's connection from `profiles.yml` — no separate warehouse configuration needed.
-
-### Monorepo structure
-
-```
-packages/
-  altimate-code/       TypeScript CLI (main entry point)
-  drivers/             Shared database drivers (10 warehouses)
-  dbt-tools/           dbt integration (TypeScript)
-  plugin/              Plugin system
-  sdk/                 SDKs (includes VS Code extension)
-  util/                Shared utilities
-```
-
 ## Community & Contributing
 
-- **Slack**: [altimate.ai/slack](https://altimate.ai/slack) — Real-time chat for questions, showcases, and feature discussion
+- **Slack**: [Join Slack](https://altimate.studio/join-agentic-data-engineering-slack) — Real-time chat for questions, showcases, and feature discussion
 - **Issues**: [GitHub Issues](https://github.com/AltimateAI/altimate-code/issues) — Bug reports and feature requests
 - **Discussions**: [GitHub Discussions](https://github.com/AltimateAI/altimate-code/discussions) — Long-form questions and proposals
 - **Security**: See [SECURITY.md](./SECURITY.md) for responsible disclosure
@@ -221,9 +182,10 @@ Contributions welcome — docs, SQL rules, warehouse connectors, and TUI improve
 
 ## Changelog
 
+- **v0.5.0** (March 2026) — smooth streaming mode, builtin skills via postinstall, `/configure-claude` and `/configure-codex` commands, warehouse auth hardening
+- **v0.4.9** (March 2026) — Snowflake auth overhaul (all auth methods), dbt tool regression fixes, parallel CI builds
 - **v0.4.2** (March 2026) — yolo mode, Python engine elimination (all-native TypeScript), tool consolidation, path sandboxing hardening, altimate-dbt CLI, unscoped npm package
-- **v0.4.1** (March 2026) — env-based skill selection, session caching, tracing improvements
-- **v0.4.0** (Feb 2026) — data visualization skill, 100+ tools, training system
+- **v0.4.0** (March 2026) — data visualization skill, 100+ tools, training system
 - **v0.3.x** — [See full changelog →](CHANGELOG.md)
 
 ## License
