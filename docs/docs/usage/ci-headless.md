@@ -19,7 +19,7 @@ Key flags:
 | `--connection <name>` | Select a specific warehouse connection |
 | `--no-color` | Disable ANSI color codes (for CI logs) |
 
-See `altimate run --help` for the full flag list, or [CLI Reference](../../usage/cli.md).
+See `altimate run --help` for the full flag list, or [CLI Reference](cli.md).
 
 ---
 
@@ -146,10 +146,10 @@ altimate trace list
 altimate trace view <trace-id>
 ```
 
-See [Tracing](../../configure/tracing.md) for the full trace reference.
+See [Tracing](../configure/tracing.md) for the full trace reference.
 
 ---
 
 ## Security Recommendation
 
-Use a **read-only warehouse user** for CI jobs that only need to read data. Reserve write-access credentials for jobs that explicitly need them (e.g., test generation that writes files). See [Security FAQ](../../reference/security-faq.md) and [Permissions](../../configure/permissions.md).
+Use a **read-only warehouse user** for CI jobs that only need to read data. Reserve write-access credentials for jobs that explicitly need them (e.g., test generation that writes files). See [Security FAQ](../reference/security-faq.md) and [Permissions](../configure/permissions.md).
