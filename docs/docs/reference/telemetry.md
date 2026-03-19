@@ -11,9 +11,9 @@ We collect the following categories of events:
 | `session_start` | A new CLI session begins |
 | `session_end` | A CLI session ends (includes duration) |
 | `session_forked` | A session is forked from an existing one |
-| `generation` | An AI model generation completes (model ID, token counts, duration, but no prompt content) |
-| `tool_call` | A tool is invoked (tool name and category, but no arguments or output) |
-| `bridge_call` | A native tool call completes (method name and duration, but no arguments) |
+| `generation` | An AI model generation completes (model ID, token counts, duration — no prompt content) |
+| `tool_call` | A tool is invoked (tool name and category — no arguments or output) |
+| `native_call` | A native engine call completes (method name and duration — no arguments) |
 | `command` | A CLI command is executed (command name only) |
 | `error` | An unhandled error occurs (error type and truncated message, but no stack traces) |
 | `auth_login` | Authentication succeeds or fails (provider and method, but no credentials) |
@@ -33,8 +33,11 @@ We collect the following categories of events:
 | `error_recovered` | Successful recovery from a transient error (error type, strategy, attempt count) |
 | `mcp_server_census` | MCP server capabilities after connect (tool and resource counts, but no tool names) |
 | `context_overflow_recovered` | Context overflow is handled (strategy) |
+| `skill_used` | A skill is loaded (skill name and source — `builtin`, `global`, or `project` — no skill content) |
+| `sql_execute_failure` | A SQL execution fails (warehouse type, query type, error message, PII-masked SQL — no raw values) |
+| `core_failure` | An internal tool error occurs (tool name, category, error class, truncated error message, PII-safe input signature, and optionally masked arguments — no raw values or credentials) |
 
-Each event includes a timestamp, anonymous session ID, and the CLI version.
+Each event includes a timestamp, anonymous session ID, CLI version, and an anonymous machine ID (a random UUID stored in `~/.altimate/machine-id`, generated once and never tied to any personal information).
 
 ## Delivery & Reliability
 
@@ -113,9 +116,9 @@ Event type names use **snake_case** with a `domain_action` pattern:
 
 ### Adding a New Event
 
-1. **Define the type.** Add a new variant to the `Telemetry.Event` union in `packages/altimate-code/src/telemetry/index.ts`
-2. **Emit the event.** Call `Telemetry.track()` at the appropriate location
-3. **Update docs.** Add a row to the event table above
+1. **Define the type** — Add a new variant to the `Telemetry.Event` union in `packages/opencode/src/altimate/telemetry/index.ts`
+2. **Emit the event** — Call `Telemetry.track()` at the appropriate location
+3. **Update docs** — Add a row to the event table above
 
 ### Privacy Checklist
 
