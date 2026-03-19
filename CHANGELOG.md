@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-19
+
+### Added
+
+- Simplified agent modes: 3 primary modes (`builder`, `analyst`, `plan`) replacing 7 — cleaner UX with focused roles (#282)
+- SQL write access control — `builder` prompts for approval on write queries, `analyst` blocks them entirely, destructive SQL (`DROP DATABASE`, `TRUNCATE`) hard-blocked (#282)
+- `core_failure` telemetry with PII-safe input signatures — captures tool failures with masked SQL literals and redacted secrets (#245)
+- `peerDependencies` for database drivers in published npm packages (#273)
+- Comprehensive docs restructuring with new Changelog, Getting Started, and Tools reference pages (#284)
+
+### Fixed
+
+- Replace `escapeSqlString` with parameterized query binds in `finops/schema` modules (#277)
+- Driver error messages now suggest `npm install` instead of `bun add` (#273)
+- System prompt traced only once per session to avoid duplication (#287)
+
+### Changed
+
+- Bump `@altimateai/altimate-core` to 0.2.5 — adds Rust-side failure telemetry with PII masking
+- Removed 5 agent prompts: `executive`, `migrator`, `researcher`, `trainer`, `validator` (#282)
+- README cleanup and updated branding (#288)
+
 ## [0.5.0] - 2026-03-18
 
 ### Added
