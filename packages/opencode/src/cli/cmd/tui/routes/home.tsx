@@ -15,6 +15,7 @@ import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
 import { useLocal } from "../context/local"
+import { UpgradeIndicator } from "../component/upgrade-indicator"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -152,7 +153,7 @@ export function Home() {
         </box>
         <box flexGrow={1} />
         <box flexShrink={0}>
-          <text fg={theme.textMuted}>{Installation.VERSION}</text>
+          <UpgradeIndicator fallback={<text fg={theme.textMuted}>{Installation.VERSION}</text>} />
         </box>
       </box>
     </>
