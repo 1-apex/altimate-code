@@ -1,11 +1,12 @@
 /**
  * Schema cache — indexes warehouse metadata into SQLite for fast search.
  *
- * Uses better-sqlite3 (optional dependency, dynamically imported) to build
- * a local FTS-ready cache of warehouse schemas, tables, and columns.
+ * Uses bun:sqlite (built into the Bun runtime) to build a local FTS-ready
+ * cache of warehouse schemas, tables, and columns.
  * Cache location: ~/.altimate-code/schema-cache.db
  */
 
+import { Database } from "bun:sqlite"
 import * as path from "path"
 import * as os from "os"
 import * as fs from "fs"
@@ -65,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_tables_search ON tables_cache(search_text);
 CREATE INDEX IF NOT EXISTS idx_columns_search ON columns_cache(search_text);
 CREATE INDEX IF NOT EXISTS idx_tables_warehouse ON tables_cache(warehouse);
 CREATE INDEX IF NOT EXISTS idx_columns_warehouse ON columns_cache(warehouse);
-CREATE INDEX IF NOT EXISTS idx_columns_table ON columns_cache(warehouse, schema_name, table_name);
+CREATE INDEX IF NOT EXISTS idx_columns_table ON columns_cache(warehouse, schema_name, table_name, column_name);
 `
 
 // ---------------------------------------------------------------------------
@@ -115,45 +116,24 @@ function tokenizeQuery(query: string): string[] {
 
 /** SQLite-backed schema metadata cache for fast warehouse search. */
 export class SchemaCache {
-  private db: any // better-sqlite3 Database instance
+  private db: Database
   private dbPath: string
 
-  private constructor(db: any, dbPath: string) {
+  private constructor(db: Database, dbPath: string) {
     this.db = db
     this.dbPath = dbPath
   }
 
-  /**
-   * Create a SchemaCache instance.
-   * Uses dynamic import for better-sqlite3 (optional dependency).
-   */
-  static async create(dbPath?: string): Promise<SchemaCache> {
+  /** Create a SchemaCache instance backed by a file on disk. */
+  static create(dbPath?: string): SchemaCache {
     const resolvedPath = dbPath || defaultCachePath()
-    let Database: any
-    try {
-      const mod = await import("better-sqlite3")
-      Database = mod.default || mod
-    } catch {
-      throw new Error(
-        "better-sqlite3 not installed. Install with: npm install better-sqlite3",
-      )
-    }
-    const db = new Database(resolvedPath)
+    const db = new Database(resolvedPath, { create: true })
     db.exec(CREATE_TABLES_SQL)
     return new SchemaCache(db, resolvedPath)
   }
 
-  /**
-   * Create a SchemaCache with an in-memory database (for testing).
-   */
-  static async createInMemory(): Promise<SchemaCache> {
-    let Database: any
-    try {
-      const mod = await import("better-sqlite3")
-      Database = mod.default || mod
-    } catch {
-      throw new Error("better-sqlite3 not installed.")
-    }
+  /** Create a SchemaCache with an in-memory database (for testing). */
+  static createInMemory(): SchemaCache {
     const db = new Database(":memory:")
     db.exec(CREATE_TABLES_SQL)
     return new SchemaCache(db, ":memory:")
@@ -197,6 +177,18 @@ export class SchemaCache {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
 
+    // Batch inserts per-table inside a transaction to avoid per-statement disk fsyncs.
+    // The async connector calls (listTables, describeTable) run outside the transaction;
+    // only the synchronous SQLite inserts are wrapped.
+    const insertTableBatch = this.db.transaction(
+      (tableArgs: any[], columnArgsBatch: any[][]) => {
+        insertTable.run(...tableArgs)
+        for (const colArgs of columnArgsBatch) {
+          insertColumn.run(...colArgs)
+        }
+      },
+    )
+
     for (const schemaName of schemas) {
       if (schemaName.toUpperCase() === "INFORMATION_SCHEMA") continue
       totalSchemas++
@@ -211,27 +203,32 @@ export class SchemaCache {
       for (const tableInfo of tables) {
         totalTables++
         const searchText = makeSearchText(databaseName, schemaName, tableInfo.name, tableInfo.type)
-        insertTable.run(
-          warehouseName, databaseName, schemaName, tableInfo.name, tableInfo.type, searchText,
-        )
 
         let columns: Array<{ name: string; data_type: string; nullable: boolean }> = []
         try {
           columns = await connector.describeTable(schemaName, tableInfo.name)
         } catch {
-          continue
+          // continue with empty columns
         }
 
+        // Build column insert args
+        const columnArgsBatch: any[][] = []
         for (const col of columns) {
           totalColumns++
           const colSearch = makeSearchText(
             databaseName, schemaName, tableInfo.name, col.name, col.data_type,
           )
-          insertColumn.run(
+          columnArgsBatch.push([
             warehouseName, databaseName, schemaName, tableInfo.name,
             col.name, col.data_type, col.nullable ? 1 : 0, colSearch,
-          )
+          ])
         }
+
+        // Insert table + all its columns in a single transaction
+        insertTableBatch(
+          [warehouseName, databaseName, schemaName, tableInfo.name, tableInfo.type, searchText],
+          columnArgsBatch,
+        )
       }
     }
 
@@ -399,7 +396,7 @@ let _cache: SchemaCache | null = null
 
 export async function getCache(): Promise<SchemaCache> {
   if (!_cache) {
-    _cache = await SchemaCache.create()
+    _cache = SchemaCache.create()
   }
   return _cache
 }
