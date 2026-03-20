@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-03-20
+
+### Added
+
+- Show update-available indicator in TUI footer — when a newer version is available, the footer displays `↑ version · altimate upgrade` with responsive layout for narrow terminals (#175)
+- Track per-generation token usage in telemetry — emit `generation` event with flat token fields (`tokens_input`, `tokens_output`, `tokens_reasoning`, `tokens_cache_read`, `tokens_cache_write`) for Azure App Insights compatibility (#336)
+
+### Fixed
+
+- Replace `better-sqlite3` with `bun:sqlite` for schema cache and SQLite driver — fixes `schema_index`, `schema_search`, `schema_cache_status`, and SQLite driver for all users on the released CLI binary (#323)
+- Fix marker guard diff parser bug — context lines now correctly update `altimate_change` marker state, preventing false negatives that allowed marker leaks to pass CI (#338)
+- Extend marker guard CI to run on push-to-main with zero-SHA guard — closes the gap where individual PRs pass but combined state of `main` has missing markers (#338)
+- Add `import.meta.main` guard to `analyze.ts` so test imports don't trigger CLI side effects (#338)
+- Add 21 unit tests for marker diff parser and run them in CI (#338)
+
 ## [0.5.3] - 2026-03-19
 
 ### Fixed
