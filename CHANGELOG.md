@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-03-19
+
+### Fixed
+
+- Bundle skills, dbt-tools, and altimate-setup in shipped npm binary — skills now work in all distribution channels (npm, Homebrew, AUR, Docker) without relying on `postinstall` filesystem copies (#316)
+- Exclude 220MB of unused `.node` binaries from dbt-tools bundle (#320)
+- Documentation about warehouse connections updated (#318)
+
+### Changed
+
+- Added `altimate_change` markers to upstream-shared files and marker removal detection to CI — prevents markers from being silently stripped (#322)
+
 ## [0.5.2] - 2026-03-19
 
 ### Added
