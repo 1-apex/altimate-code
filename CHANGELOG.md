@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-03-20
+
+### Added
+
+- Auto-discover MCP servers from external AI tool configs (VS Code, Cursor, GitHub Copilot, Claude Code, Gemini CLI, Claude Desktop) — discovered project-scoped servers are disabled by default and require explicit approval; home-directory configs are auto-enabled (#311)
+- Security FAQ documentation for MCP auto-discovery — covers trust model, security hardening, and how to disable (#346)
+
+### Changed
+
+- `auto_mcp_discovery` now defaults to `true` in config schema via `z.boolean().default(true)` — matches existing runtime behavior (#345)
+
+### Fixed
+
+- Add missing `altimate_change` markers for `experimental` block in `opencode.jsonc` — fixes Marker Guard CI failure on main (#344)
+
 ## [0.5.4] - 2026-03-20
 
 ### Added
