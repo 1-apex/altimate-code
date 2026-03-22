@@ -80,7 +80,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Ar
 .wf-icon.generation { background: rgba(77,142,255,0.15); color: var(--secondary); }
 .wf-icon.tool { background: rgba(34,211,238,0.12); color: var(--cyan); }
 .wf-icon.error { background: rgba(248,113,113,0.15); color: var(--red); }
-.wf-name { font-size: 13px; font-weight: 500; width: 200px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-info { width: 300px; flex-shrink: 0; overflow: hidden; min-width: 0; }
+.wf-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-preview { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.wf-preview .pv-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 4px; border-radius: 3px; margin-right: 4px; vertical-align: baseline; }
+.wf-preview .pv-tag.model { background: rgba(77,142,255,0.12); color: var(--secondary); }
+.wf-preview .pv-tag.tok { background: rgba(74,222,128,0.12); color: var(--green); }
+.wf-preview .pv-tag.err { background: rgba(248,113,113,0.12); color: var(--red); }
 .wf-bar-c { flex: 1; height: 18px; position: relative; overflow: hidden; }
 .wf-bar { position: absolute; height: 100%; border-radius: 3px; min-width: 3px; opacity: 0.85; display: flex; align-items: center; padding-left: 4px; }
 .wf-bar.generation { background: var(--secondary); }
@@ -102,6 +108,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Ar
 .tree-type.session { background: rgba(77,142,255,0.1); color: var(--primary); }
 .tree-title { font-size: 13px; font-weight: 500; }
 .tree-meta { font-size: 12px; color: var(--dim); display: flex; gap: 12px; margin-top: 2px; }
+.tree-preview { font-size: 11px; color: var(--dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 600px; }
+.tree-preview .pv-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 4px; border-radius: 3px; margin-right: 4px; vertical-align: baseline; }
+.tree-preview .pv-tag.model { background: rgba(77,142,255,0.12); color: var(--secondary); }
+.tree-preview .pv-tag.tok { background: rgba(74,222,128,0.12); color: var(--green); }
+.tree-preview .pv-tag.err { background: rgba(248,113,113,0.12); color: var(--red); }
 .tree-detail { margin-top: 8px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; display: none; }
 .tree-detail.open { display: block; }
 
@@ -121,8 +132,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Ar
 .chat-tool pre { background: var(--bg); padding: 6px; border-radius: 4px; margin-top: 4px; font-size: 11px; overflow-x: auto; max-height: 150px; overflow-y: auto; }
 
 /* ---- Log View ---- */
-.log-entry { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+.log-entry { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-family: 'JetBrains Mono', 'Fira Code', monospace; cursor: pointer; }
 .log-entry:hover { background: var(--s1); }
+.log-entry.sel { background: var(--s2); }
 .log-ts { color: var(--dim); font-size: 11px; margin-right: 8px; }
 .log-kind { font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 1px 4px; border-radius: 3px; margin-right: 8px; }
 .log-kind.generation { background: rgba(77,142,255,0.15); color: var(--secondary); }
@@ -221,10 +233,12 @@ document.getElementById('cards').innerHTML = cardsData.filter(function(c) { retu
 
 // --- Tab switching ---
 document.getElementById('tabs').addEventListener('click', function(ev) {
-  var view = ev.target.dataset.view; if (!view) return;
-  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
-  ev.target.classList.add('active');
+  var tab = ev.target.closest ? ev.target.closest('.tab') : ev.target;
+  if (!tab || !tab.dataset || !tab.dataset.view) return;
+  var view = tab.dataset.view;
+  document.querySelectorAll('.tab').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
+  tab.classList.add('active');
   document.getElementById('v-' + view).classList.add('active');
   document.getElementById('detail').innerHTML = '';
 });
@@ -234,6 +248,53 @@ var tStart = spans.length ? Math.min.apply(null, spans.map(function(s) { return 
 var tEnd = spans.length ? Math.max.apply(null, spans.map(function(s) { return s.endTime || s.startTime || Date.now(); })) : 1;
 var tTotal = tEnd - tStart || 1;
 var icons = { session: '\\u25A0', generation: '\\u2B50', tool: '\\u2692', text: '\\u270E' };
+
+// --- Inline preview helper ---
+// Returns a short HTML string summarizing a span without expanding it.
+function getPreview(span) {
+  var parts = [];
+  // Error message always shown
+  if (span.status === 'error' && span.statusMessage) {
+    return '<span class="pv-tag err">\\u2718</span>' + e((span.statusMessage || '').slice(0, 120));
+  }
+  if (span.kind === 'tool') {
+    // Extract a useful summary from tool input
+    var inp = span.input;
+    if (inp) {
+      if (typeof inp === 'string') {
+        parts.push(e(inp.slice(0, 120)));
+      } else if (typeof inp === 'object') {
+        // Common tool input patterns
+        var o = inp;
+        if (o.command) parts.push(e(String(o.command).slice(0, 120)));
+        else if (o.file_path) parts.push(e(String(o.file_path)));
+        else if (o.pattern && o.path) parts.push(e(o.pattern + ' in ' + o.path));
+        else if (o.pattern) parts.push(e(String(o.pattern)));
+        else if (o.query) parts.push(e(String(o.query).slice(0, 120)));
+        else if (o.url) parts.push(e(String(o.url).slice(0, 120)));
+        else if (o.prompt) parts.push(e(String(o.prompt).slice(0, 120)));
+        else if (o.description) parts.push(e(String(o.description).slice(0, 120)));
+        else {
+          var s = JSON.stringify(o);
+          if (s.length > 120) s = s.slice(0, 120) + '...';
+          parts.push(e(s));
+        }
+      }
+    }
+    if (span.status === 'error') parts.unshift('<span class="pv-tag err">\\u2718</span>');
+  } else if (span.kind === 'generation') {
+    if (span.model && span.model.modelId) parts.push('<span class="pv-tag model">' + e(span.model.modelId) + '</span>');
+    if (span.tokens && span.tokens.total) parts.push('<span class="pv-tag tok">' + Number(span.tokens.total).toLocaleString() + ' tok</span>');
+    if (span.finishReason && span.finishReason !== 'stop') parts.push(e(span.finishReason));
+    if (span.cost) parts.push(fc(span.cost));
+  } else if (span.kind === 'text') {
+    if (span.input) {
+      var txt = typeof span.input === 'string' ? span.input : JSON.stringify(span.input);
+      parts.push(e(txt.slice(0, 120)));
+    }
+  }
+  return parts.join(' ');
+}
 
 // --- Detail panel ---
 function showDetail(span) {
@@ -304,7 +365,7 @@ function showDetail(span) {
 // ===================== WATERFALL VIEW =====================
 (function() {
   var el = document.getElementById('v-waterfall');
-  nonSession.forEach(function(span) {
+  nonSession.forEach(function(span, idx) {
     var st = (span.startTime||0) - tStart;
     var dur = (span.endTime || Date.now()) - (span.startTime||0);
     var left = (st / tTotal * 100).toFixed(2);
@@ -312,17 +373,23 @@ function showDetail(span) {
     var cls = span.status === 'error' ? 'error' : e(span.kind);
     var row = document.createElement('div');
     row.className = 'wf-row';
+    row.setAttribute('data-idx', String(idx));
     var iconCls = span.status === 'error' ? 'error' : e(span.kind);
+    var pv = getPreview(span);
     row.innerHTML = '<div class="wf-icon ' + iconCls + '">' + (icons[span.kind]||'\\u2022') + '</div>' +
-      '<div class="wf-name">' + e(span.name) + '</div>' +
+      '<div class="wf-info"><div class="wf-name">' + e(span.name) + '</div>' + (pv ? '<div class="wf-preview">' + pv + '</div>' : '') + '</div>' +
       '<div class="wf-bar-c"><div class="wf-bar ' + cls + '" style="left:'+left+'%;width:'+width+'%"><span class="wf-bar-label">' + fd(dur) + '</span></div></div>' +
       '<div class="wf-dur">' + fd(dur) + '</div>';
-    row.onclick = function() {
-      document.querySelectorAll('.wf-row').forEach(function(r){r.classList.remove('sel');});
-      row.classList.add('sel');
-      showDetail(span);
-    };
     el.appendChild(row);
+  });
+  el.addEventListener('click', function(ev) {
+    var row = ev.target.closest ? ev.target.closest('.wf-row') : ev.target;
+    if (!row || !row.dataset || row.dataset.idx == null) return;
+    var span = nonSession[Number(row.dataset.idx)];
+    if (!span) return;
+    document.querySelectorAll('.wf-row').forEach(function(r){r.classList.remove('sel');});
+    row.classList.add('sel');
+    showDetail(span);
   });
 })();
 
@@ -335,17 +402,20 @@ function showDetail(span) {
     if (!children.length) return '';
     var html = '';
     children.forEach(function(span) {
+      var idx = spans.indexOf(span);
       var dur = (span.endTime||Date.now()) - (span.startTime||0);
       var meta = [];
       meta.push(fd(dur));
       if (span.tokens) meta.push(Number(span.tokens.total||0) + ' tok');
       if (span.cost) meta.push(fc(span.cost));
       if (span.status === 'error') meta.push('<span style="color:var(--red)">error</span>');
-      html += '<div class="tree-node"><div class="tree-item" data-sid="' + e(span.spanId) + '">';
+      html += '<div class="tree-node"><div class="tree-item" data-idx="' + idx + '">';
       html += '<div class="tree-head">';
       html += '<span class="tree-type ' + e(span.kind) + '">' + e(span.kind) + '</span>';
       html += '<span class="tree-title">' + e(span.name) + '</span>';
       html += '</div>';
+      var treePv = getPreview(span);
+      if (treePv) html += '<div class="tree-preview">' + treePv + '</div>';
       html += '<div class="tree-meta">' + meta.join(' &middot; ') + '</div>';
       html += '</div>';
       html += buildTree(span.spanId);
@@ -356,12 +426,11 @@ function showDetail(span) {
   var rootId = sessionSpan ? sessionSpan.spanId : null;
   el.innerHTML = buildTree(rootId) || '<div style="color:var(--dim);padding:20px">No spans recorded yet.</div>';
   el.addEventListener('click', function(ev) {
-    var item = ev.target.closest('.tree-item');
-    if (!item) return;
-    var sid = item.dataset.sid;
-    var span = spans.find(function(s){return s.spanId===sid;});
+    var item = ev.target.closest ? ev.target.closest('.tree-item') : null;
+    if (!item || item.dataset.idx == null) return;
+    var span = spans[Number(item.dataset.idx)];
     if (!span) return;
-    document.querySelectorAll('.tree-item').forEach(function(i){i.classList.remove('sel');});
+    document.querySelectorAll('.tree-item').forEach(function(el){el.classList.remove('sel');});
     item.classList.add('sel');
     showDetail(span);
   });
@@ -419,17 +488,24 @@ function showDetail(span) {
   var sorted = spans.slice().sort(function(a,b){return (a.startTime||0)-(b.startTime||0);});
   sorted.forEach(function(span) {
     if (span.kind === 'session') return;
+    var idx = spans.indexOf(span);
     var ts = span.startTime ? new Date(span.startTime).toISOString().slice(11,23) : '';
     var kindCls = span.status === 'error' ? 'error' : e(span.kind);
-    html += '<div class="log-entry">';
+    html += '<div class="log-entry" data-idx="' + idx + '">';
     html += '<span class="log-ts">' + ts + '</span>';
     var logIcon = span.kind === 'generation' ? '\\u2B50' : span.kind === 'tool' ? '\\u2692' : '\\u25A0';
     html += '<span class="log-kind ' + kindCls + '">' + logIcon + ' ' + e(span.kind||'') + '</span>';
     html += '<span class="log-name">' + e(span.name) + '</span>';
+    if (span.kind === 'generation' && span.model && span.model.modelId) html += ' <span style="color:var(--secondary);font-size:11px;opacity:0.8">' + e(span.model.modelId) + '</span>';
     if (span.tokens) html += ' <span style="color:var(--dim);font-size:11px">' + Number(span.tokens.total||0) + ' tok</span>';
     if (span.cost) html += ' <span style="color:var(--orange);font-size:11px">' + fc(span.cost) + '</span>';
     if (span.tool && span.tool.durationMs != null) html += ' <span style="color:var(--dim);font-size:11px">' + fd(span.tool.durationMs) + '</span>';
     if (span.status === 'error') html += ' <span style="color:var(--red);font-size:11px">\\u2718 ' + e((span.statusMessage||'').slice(0,100)) + '</span>';
+    // Show inline preview for tools (input is more useful than output)
+    if (span.kind === 'tool' && span.input) {
+      var logPv = getPreview(span);
+      if (logPv) html += '<div class="log-data" style="color:var(--cyan);opacity:0.7;max-height:none">' + logPv + '</div>';
+    }
     // Show input/output preview
     if (span.output) {
       var out = typeof span.output === 'string' ? span.output : JSON.stringify(span.output);
@@ -440,6 +516,15 @@ function showDetail(span) {
   });
   if (!html) html = '<div style="color:var(--dim);padding:20px">No log entries yet.</div>';
   el.innerHTML = html;
+  el.addEventListener('click', function(ev) {
+    var entry = ev.target.closest ? ev.target.closest('.log-entry') : null;
+    if (!entry || entry.dataset.idx == null) return;
+    var span = spans[Number(entry.dataset.idx)];
+    if (!span) return;
+    document.querySelectorAll('.log-entry').forEach(function(el){el.classList.remove('sel');});
+    entry.classList.add('sel');
+    showDetail(span);
+  });
 })();
 
 // ===================== LIVE POLLING =====================
