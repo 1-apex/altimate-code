@@ -64,8 +64,8 @@ export namespace Skill {
   const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
   const SKILL_PATTERN = "**/SKILL.md"
 
-  // altimate_change start — extract init function so it can be referenced for cache invalidation
-  const stateInit = async () => {
+  // altimate_change start — extract init to named function for cache invalidation
+  const stateInit: () => Promise<{ skills: Record<string, Info>; dirs: string[] }> = async () => {
   // altimate_change end
     const skills: Record<string, Info> = {}
     const dirs = new Set<string>()
@@ -234,8 +234,8 @@ export namespace Skill {
       skills,
       dirs: Array.from(dirs),
     }
+  // altimate_change start — stateInit closing brace + Instance.state wrapper + invalidation
   }
-  // altimate_change start — wrap extracted init in Instance.state
   export const state = Instance.state(stateInit)
   // altimate_change end
 

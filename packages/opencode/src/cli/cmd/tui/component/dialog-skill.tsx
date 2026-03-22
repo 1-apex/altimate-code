@@ -355,10 +355,12 @@ export function DialogSkill(props: DialogSkillProps) {
   // altimate_change end
   dialog.setSize("large")
 
+  // altimate_change start — destructure refetch for cache invalidation after install/create
   const [skills, { refetch }] = createResource(async () => {
     const result = await sdk.client.app.skills()
     return result.data ?? []
   })
+  // altimate_change end
 
   // altimate_change start — build lookups from skill name → location/content for actions
   const skillMap = createMemo(() => {
@@ -536,6 +538,7 @@ export function DialogSkill(props: DialogSkillProps) {
   ])
   // altimate_change end
 
+  // altimate_change start — pass keybinds for action picker, create, install
   return (
     <DialogSelect
       title="Skills"
@@ -544,4 +547,5 @@ export function DialogSkill(props: DialogSkillProps) {
       keybind={keybinds()}
     />
   )
+  // altimate_change end
 }
