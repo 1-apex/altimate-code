@@ -350,7 +350,9 @@ function DialogSkillInstall() {
 export function DialogSkill(props: DialogSkillProps) {
   const dialog = useDialog()
   const sdk = useSDK()
+  // altimate_change start — toast for action feedback
   const toast = useToast()
+  // altimate_change end
   dialog.setSize("large")
 
   const [skills, { refetch }] = createResource(async () => {
