@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] - 2026-03-23
+
+### Fixed
+
+- **Codespaces support** — skip machine-scoped `GITHUB_TOKEN` that lacks repo access, cap provider retries to prevent infinite loops, fix phantom `/discover-and-add-mcps` command that was missing from builtin commands (#415)
+- **`sql_analyze` reports "unknown error" for successful analyses** — tool returned error status even when analysis completed successfully (AI-5975) (#426)
+- **Remove `semver` dependency from upgrade path** — replaced with zero-dependency version comparison to prevent users getting locked on old versions when `semver` fails to load (#421)
+- **Ship `discover-and-add-mcps` as a builtin command** — moved from `.opencode/command/` config directory to embedded template so it works out of the box (#409)
+
+### Testing
+
+- Comprehensive upgrade decision tests covering version comparison, downgrade prevention, and edge cases (#421)
+- Codespace E2E tests for `GITHUB_TOKEN` filtering, retry caps, and provider initialization (#415)
+
 ## [0.5.8] - 2026-03-23
 
 ### Fixed
