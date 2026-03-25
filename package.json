@@ -14,7 +14,12 @@
     "prepare": "husky",
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'",
-    "test": "echo 'do not run tests from root' && exit 1"
+    "test": "echo 'do not run tests from root' && exit 1",
+    "ci": "test/sanity/ci-local.sh",
+    "ci:full": "test/sanity/ci-local.sh full",
+    "ci:pr": "test/sanity/ci-local.sh pr",
+    "sanity": "docker compose -f test/sanity/docker-compose.yml up --build --abort-on-container-exit --exit-code-from sanity",
+    "sanity:upgrade": "docker compose -f test/sanity/docker-compose.yml -f test/sanity/docker-compose.upgrade.yml up --build --abort-on-container-exit --exit-code-from sanity"
   },
   "workspaces": {
     "packages": [

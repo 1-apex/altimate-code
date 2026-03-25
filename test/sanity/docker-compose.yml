@@ -1,0 +1,76 @@
+services:
+  sanity:
+    build:
+      context: ../..
+      dockerfile: test/sanity/Dockerfile
+    environment:
+      - ANTHROPIC_API_KEY
+      - ALTIMATE_CODE_CONN_SNOWFLAKE_TEST
+      - TEST_PG_HOST=postgres
+      - TEST_PG_PORT=5432
+      - TEST_PG_PASSWORD=testpass123
+      - TEST_MYSQL_HOST=mysql
+      - TEST_MYSQL_PORT=3306
+      - TEST_MYSQL_PASSWORD=testpass123
+      - TEST_MSSQL_HOST=mssql
+      - TEST_MSSQL_PORT=1433
+      - TEST_MSSQL_PASSWORD=TestPass123!
+      - TEST_REDSHIFT_HOST=redshift
+      - TEST_REDSHIFT_PORT=5432
+      - TEST_REDSHIFT_PASSWORD=testpass123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      mssql:
+        condition: service_healthy
+      redshift:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: testpass123
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: pg_isready
+      interval: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass123
+      MYSQL_DATABASE: testdb
+    ports:
+      - "13306:3306"
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1
+      interval: 5s
+      retries: 20
+
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "TestPass123!"
+    ports:
+      - "11433:1433"
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'TestPass123!' -Q 'SELECT 1' || exit 1
+      interval: 10s
+      retries: 20
+
+  redshift:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_DB: dev
+    ports:
+      - "15439:5432"
+    healthcheck:
+      test: pg_isready
+      interval: 5s
+      retries: 10

@@ -1,0 +1,10 @@
+{
+  "provider": {
+    "anthropic": {
+      "api_key": "test-key-not-real"
+    }
+  },
+  "experimental": {
+    "auto_mcp_discovery": true
+  }
+}

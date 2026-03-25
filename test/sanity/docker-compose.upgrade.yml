@@ -1,0 +1,8 @@
+# Override for upgrade testing — replaces sanity service with Dockerfile.upgrade
+services:
+  sanity:
+    build:
+      context: ../..
+      dockerfile: test/sanity/Dockerfile.upgrade
+      args:
+        PRIOR_VERSION: ${PRIOR_VERSION:-latest}

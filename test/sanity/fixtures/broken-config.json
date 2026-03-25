@@ -1,0 +1,12 @@
+{
+  "provider": {
+    "anthropic": {
+      "api_key": 12345
+    }
+  },
+  "experimental": {
+    "not_a_real_field": "should be ignored",
+    "auto_mcp_discovery": "not-a-boolean"
+  },
+  "unknown_top_level": true
+}

@@ -1,0 +1,10 @@
+{
+  "version": "0.0.0",
+  "timestamp": "2026-03-24T00:00:00Z",
+  "note": "Placeholder — run 'bun run sanity' and update with actual results",
+  "phases": {
+    "verify-install": { "total": 9, "passed": 0 },
+    "smoke-tests": { "total": 10, "passed": 0 },
+    "resilience": { "total": 7, "passed": 0 }
+  }
+}
