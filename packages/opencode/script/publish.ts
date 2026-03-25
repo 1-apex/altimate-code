@@ -112,7 +112,22 @@ const tasks = Object.entries(binaries).map(async ([name]) => {
     await $`chmod -R 755 .`.cwd(`./dist/${name}`)
   }
   await $`bun pm pack`.cwd(`./dist/${name}`)
-  await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(`./dist/${name}`)
+  // Retry up to 3 times — npm returns transient 404s when multiple scoped
+  // packages under the same org are published concurrently.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(`./dist/${name}`)
+      break
+    } catch (e: any) {
+      const isRetryable = String(e?.stderr ?? e).includes("E404") || String(e?.stderr ?? e).includes("ETIMEDOUT")
+      if (isRetryable && attempt < 3) {
+        console.warn(`npm publish ${name} attempt ${attempt} failed (retryable), retrying in ${attempt * 5}s...`)
+        await Bun.sleep(attempt * 5000)
+      } else {
+        throw e
+      }
+    }
+  }
 })
 await Promise.all(tasks)
 await $`cd ./dist/${pkg.name} && bun pm pack && npm publish *.tgz --access public --tag ${Script.channel}`

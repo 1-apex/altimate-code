@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **README changelog gap** — updated README to reflect releases v0.5.1 through v0.5.11; previous README only listed up to v0.5.0
+- **npm publish transient 404s** — added retry logic (3 attempts with backoff) to `publish.ts` for concurrent scoped package publishes that hit npm registry race conditions
 
 ## [0.5.10] - 2026-03-24
 

@@ -1,26 +1,8 @@
-fix: add release smoke tests to prevent broken binary publishes
+release: v0.5.11
 
-Closes #462
-
-v0.5.10 shipped with `@altimateai/altimate-core` missing from standalone
-distributions, crashing on startup. Add three-layer defense:
-
-- **CI smoke test**: run the compiled `linux-x64` binary after build and
-  before npm publish — catches runtime crashes that compile fine
-- **Build-time verification**: validate all `requiredExternals` are in
-  `package.json` `dependencies` (not just `devDependencies`) so they
-  ship in the npm wrapper package
-- **Local pre-release script**: `bun run pre-release` builds + smoke-tests
-  the binary before tagging — mandatory step in RELEASING.md
-
-Also adds `smoke-test-binary.test.ts` with 3 tests: version check,
-standalone graceful-failure, and `--help` output.
-
-Reviewed by 5 AI models (Claude, GPT 5.2 Codex, Gemini 3.1 Pro,
-Kimi K2.5, MiniMax M2.5). Key fixes from review:
-- Include workspace `node_modules` in `NODE_PATH` (Gemini)
-- Restrict dep check to `dependencies` only (GPT, Gemini, Kimi)
-- Hard-fail pre-publish gate when binary not found (Claude, GPT)
-- Tighten exit code assertion for signal safety (MiniMax)
+Update README changelog to reflect releases v0.5.1 through v0.5.11.
+Previous README only listed up to v0.5.0, missing 10 versions of features
+including `check` CLI, skill management, session tracing, Codespaces support,
+impact analysis, Snowflake Cortex, MCP auto-discovery, and more.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
