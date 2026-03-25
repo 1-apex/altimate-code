@@ -47,10 +47,11 @@ export const FinopsExpensiveQueriesTool = Tool.define("finops_expensive_queries"
       })
 
       if (!result.success) {
+        const error = result.error ?? "Unknown error"
         return {
           title: "Expensive Queries: FAILED",
-          metadata: { success: false, query_count: 0 },
-          output: `Failed to find expensive queries: ${result.error ?? "Unknown error"}`,
+          metadata: { success: false, query_count: 0, error },
+          output: `Failed to find expensive queries: ${error}`,
         }
       }
 
@@ -63,7 +64,7 @@ export const FinopsExpensiveQueriesTool = Tool.define("finops_expensive_queries"
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Expensive Queries: ERROR",
-        metadata: { success: false, query_count: 0 },
+        metadata: { success: false, query_count: 0, error: msg },
         output: `Failed to find expensive queries: ${msg}`,
       }
     }

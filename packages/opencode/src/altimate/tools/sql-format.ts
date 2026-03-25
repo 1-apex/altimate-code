@@ -7,7 +7,11 @@ export const SqlFormatTool = Tool.define("sql_format", {
     "Format and beautify SQL code with consistent indentation, keyword casing, and line breaks. Supports all major SQL dialects.",
   parameters: z.object({
     sql: z.string().describe("SQL to format"),
-    dialect: z.string().optional().default("snowflake").describe("SQL dialect (snowflake, postgres, bigquery, duckdb, etc.)"),
+    dialect: z
+      .string()
+      .optional()
+      .default("snowflake")
+      .describe("SQL dialect (snowflake, postgres, bigquery, duckdb, etc.)"),
     indent: z.number().optional().default(2).describe("Indentation width in spaces"),
   }),
   async execute(args, ctx) {
@@ -21,7 +25,7 @@ export const SqlFormatTool = Tool.define("sql_format", {
       if (!result.success) {
         return {
           title: "Format: FAILED",
-          metadata: { success: false, statement_count: 0 },
+          metadata: { success: false, statement_count: 0, error: result.error },
           output: `Failed to format SQL: ${result.error ?? "Unknown error"}`,
         }
       }
@@ -35,7 +39,7 @@ export const SqlFormatTool = Tool.define("sql_format", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Format: ERROR",
-        metadata: { success: false, statement_count: 0 },
+        metadata: { success: false, statement_count: 0, error: msg },
         output: `Failed to format SQL: ${msg}\n\nCheck your connection configuration and try again.`,
       }
     }

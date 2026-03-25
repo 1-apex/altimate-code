@@ -48,8 +48,8 @@ export namespace Telemetry {
         // No nested objects: Azure App Insights custom measures must be top-level numbers.
         tokens_input: number
         tokens_output: number
-        tokens_reasoning?: number   // only for reasoning models
-        tokens_cache_read?: number  // only when a cached prompt was reused
+        tokens_reasoning?: number // only for reasoning models
+        tokens_cache_read?: number // only when a cached prompt was reused
         tokens_cache_write?: number // only when a new cache entry was written
       }
     | {
@@ -401,19 +401,27 @@ export namespace Telemetry {
         session_id: string
         tool_name: string
         tool_category: string
-        error_class:
-          | "parse_error"
-          | "connection"
-          | "timeout"
-          | "validation"
-          | "internal"
-          | "permission"
-          | "unknown"
+        error_class: "parse_error" | "connection" | "timeout" | "validation" | "internal" | "permission" | "unknown"
         error_message: string
         input_signature: string
         masked_args?: string
         duration_ms: number
       }
+    // altimate_change start — sql quality telemetry for issue prevention metrics
+    | {
+        type: "sql_quality"
+        timestamp: number
+        session_id: string
+        tool_name: string
+        tool_category: string
+        finding_count: number
+        /** JSON-encoded Record<string, number> — count per issue category */
+        by_category: string
+        has_schema: boolean
+        dialect?: string
+        duration_ms: number
+      }
+  // altimate_change end
 
   const ERROR_PATTERNS: Array<{
     class: Telemetry.Event & { type: "core_failure" } extends { error_class: infer C } ? C : never
@@ -476,20 +484,40 @@ export namespace Telemetry {
 
   // Mirrors altimate-sdk (Rust) SENSITIVE_KEYS — keep in sync.
   const SENSITIVE_KEYS: string[] = [
-    "key", "api_key", "apikey", "apiKey", "token", "access_token", "refresh_token",
-    "secret", "secret_key", "password", "passwd", "pwd",
-    "credential", "credentials", "authorization", "auth",
-    "signature", "sig", "private_key", "connection_string",
+    "key",
+    "api_key",
+    "apikey",
+    "apiKey",
+    "token",
+    "access_token",
+    "refresh_token",
+    "secret",
+    "secret_key",
+    "password",
+    "passwd",
+    "pwd",
+    "credential",
+    "credentials",
+    "authorization",
+    "auth",
+    "signature",
+    "sig",
+    "private_key",
+    "connection_string",
     // camelCase variants not caught by prefix/suffix matching
-    "authtoken", "accesstoken", "refreshtoken", "bearertoken", "jwttoken",
-    "jwtsecret", "clientsecret", "appsecret",
+    "authtoken",
+    "accesstoken",
+    "refreshtoken",
+    "bearertoken",
+    "jwttoken",
+    "jwtsecret",
+    "clientsecret",
+    "appsecret",
   ]
 
   function isSensitiveKey(key: string): boolean {
     const lower = key.toLowerCase()
-    return SENSITIVE_KEYS.some(
-      (k) => lower === k || lower.endsWith(`_${k}`) || lower.startsWith(`${k}_`),
-    )
+    return SENSITIVE_KEYS.some((k) => lower === k || lower.endsWith(`_${k}`) || lower.startsWith(`${k}_`))
   }
 
   export function maskString(s: string): string {
@@ -674,7 +702,7 @@ export namespace Telemetry {
       // before Instance.provide()). Treat config failures as "not disabled" —
       // the env var check above is the early-init escape hatch.
       try {
-        const userConfig = await Config.get() as any
+        const userConfig = (await Config.get()) as any
         if (userConfig.telemetry?.disabled) {
           buffer = []
           return
@@ -788,6 +816,22 @@ export namespace Telemetry {
       clearTimeout(timeout)
     }
   }
+
+  // altimate_change start — sql quality telemetry types
+  /** Lightweight finding record for quality telemetry. Only category — never SQL content. */
+  export interface Finding {
+    category: string
+  }
+
+  /** Aggregate an array of findings into category counts suitable for the sql_quality event. */
+  export function aggregateFindings(findings: Finding[]): Record<string, number> {
+    const by_category: Record<string, number> = {}
+    for (const f of findings) {
+      by_category[f.category] = (by_category[f.category] ?? 0) + 1
+    }
+    return by_category
+  }
+  // altimate_change end
 
   export async function shutdown() {
     // Wait for init to complete so we know whether telemetry is enabled

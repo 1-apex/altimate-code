@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreExtractMetadataTool = Tool.define("altimate_core_extract_metadata", {
   description:
-    "Extract metadata from SQL using the Rust-based altimate-core engine. Identifies tables, columns, functions, CTEs, and other structural elements referenced in a query.",
+    "Extract metadata from SQL. Identifies tables, columns, functions, CTEs, and other structural elements referenced in a query.",
   parameters: z.object({
     sql: z.string().describe("SQL query to extract metadata from"),
     dialect: z.string().optional().describe("SQL dialect (e.g. snowflake, bigquery, postgres)"),
@@ -15,15 +15,16 @@ export const AltimateCoreExtractMetadataTool = Tool.define("altimate_core_extrac
         sql: args.sql,
         dialect: args.dialect ?? "",
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
+      const error = result.error ?? data.error
       return {
         title: `Metadata: ${data.tables?.length ?? 0} tables, ${data.columns?.length ?? 0} columns`,
-        metadata: { success: result.success },
+        metadata: { success: result.success, ...(error && { error }) },
         output: formatMetadata(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Metadata: ERROR", metadata: { success: false }, output: `Failed: ${msg}` }
+      return { title: "Metadata: ERROR", metadata: { success: false, error: msg }, output: `Failed: ${msg}` }
     }
   },
 })

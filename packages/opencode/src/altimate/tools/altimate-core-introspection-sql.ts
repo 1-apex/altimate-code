@@ -17,15 +17,20 @@ export const AltimateCoreIntrospectionSqlTool = Tool.define("altimate_core_intro
         database: args.database,
         schema_name: args.schema_name,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
+      const error = result.error ?? data.error
       return {
         title: `Introspection SQL: ${args.db_type}`,
-        metadata: { success: result.success, db_type: args.db_type },
+        metadata: { success: result.success, db_type: args.db_type, ...(error && { error }) },
         output: formatIntrospectionSql(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Introspection SQL: ERROR", metadata: { success: false, db_type: args.db_type }, output: `Failed: ${msg}` }
+      return {
+        title: "Introspection SQL: ERROR",
+        metadata: { success: false, db_type: args.db_type, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

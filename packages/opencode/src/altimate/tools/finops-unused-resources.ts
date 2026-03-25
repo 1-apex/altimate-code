@@ -75,10 +75,11 @@ export const FinopsUnusedResourcesTool = Tool.define("finops_unused_resources", 
       })
 
       if (!result.success) {
+        const error = result.error ?? "Unknown error"
         return {
           title: "Unused Resources: FAILED",
-          metadata: { success: false, unused_count: 0 },
-          output: `Failed to find unused resources: ${result.error ?? "Unknown error"}`,
+          metadata: { success: false, unused_count: 0, error },
+          output: `Failed to find unused resources: ${error}`,
         }
       }
 
@@ -88,17 +89,13 @@ export const FinopsUnusedResourcesTool = Tool.define("finops_unused_resources", 
       return {
         title: `Unused Resources: ${total} found`,
         metadata: { success: true, unused_count: total },
-        output: formatUnusedResources(
-          summary,
-          result.unused_tables as unknown[],
-          result.idle_warehouses as unknown[],
-        ),
+        output: formatUnusedResources(summary, result.unused_tables as unknown[], result.idle_warehouses as unknown[]),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Unused Resources: ERROR",
-        metadata: { success: false, unused_count: 0 },
+        metadata: { success: false, unused_count: 0, error: msg },
         output: `Failed to find unused resources: ${msg}`,
       }
     }

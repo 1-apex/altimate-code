@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreExportDdlTool = Tool.define("altimate_core_export_ddl", {
   description:
-    "Export a YAML/JSON schema as CREATE TABLE DDL statements using the Rust-based altimate-core engine.",
+    "Export a YAML/JSON schema as CREATE TABLE DDL statements. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
     schema_context: z.record(z.string(), z.any()).optional().describe("Inline schema definition"),
@@ -15,15 +15,16 @@ export const AltimateCoreExportDdlTool = Tool.define("altimate_core_export_ddl",
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
+      const error = result.error ?? data.error
       return {
         title: "Export DDL: done",
-        metadata: { success: result.success },
+        metadata: { success: result.success, ...(error && { error }) },
         output: data.ddl ?? JSON.stringify(data, null, 2),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Export DDL: ERROR", metadata: { success: false }, output: `Failed: ${msg}` }
+      return { title: "Export DDL: ERROR", metadata: { success: false, error: msg }, output: `Failed: ${msg}` }
     }
   },
 })

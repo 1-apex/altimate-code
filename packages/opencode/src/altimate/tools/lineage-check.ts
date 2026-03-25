@@ -26,25 +26,26 @@ export const LineageCheckTool = Tool.define("lineage_check", {
         schema_context: args.schema_context,
       })
 
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       if (result.error) {
         return {
           title: "Lineage: ERROR",
-          metadata: { success: false },
+          metadata: { success: false, error: result.error },
           output: `Error: ${result.error}`,
         }
       }
 
+      const error = data.error
       return {
         title: `Lineage: ${result.success ? "OK" : "PARTIAL"}`,
-        metadata: { success: result.success },
+        metadata: { success: result.success, ...(error && { error }) },
         output: formatLineage(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Lineage: ERROR",
-        metadata: { success: false },
+        metadata: { success: false, error: msg },
         output: `Failed to check lineage: ${msg}\n\nEnsure the dispatcher is running and altimate-core is initialized.`,
       }
     }

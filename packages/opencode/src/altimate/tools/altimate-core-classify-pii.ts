@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreClassifyPiiTool = Tool.define("altimate_core_classify_pii", {
   description:
-    "Classify PII columns in a schema using the Rust-based altimate-core engine. Identifies columns likely containing personal identifiable information by name patterns and data types.",
+    "Classify PII columns in a schema. Identifies columns likely containing personal identifiable information by name patterns and data types. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
     schema_context: z.record(z.string(), z.any()).optional().describe("Inline schema definition"),
@@ -15,17 +15,22 @@ export const AltimateCoreClassifyPiiTool = Tool.define("altimate_core_classify_p
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const piiColumns = data.columns ?? data.findings ?? []
       const findingCount = piiColumns.length
+      const error = result.error ?? data.error
       return {
         title: `PII Classification: ${findingCount} finding(s)`,
-        metadata: { success: result.success, finding_count: findingCount },
+        metadata: { success: result.success, finding_count: findingCount, ...(error && { error }) },
         output: formatClassifyPii(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "PII Classification: ERROR", metadata: { success: false, finding_count: 0 }, output: `Failed: ${msg}` }
+      return {
+        title: "PII Classification: ERROR",
+        metadata: { success: false, finding_count: 0, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

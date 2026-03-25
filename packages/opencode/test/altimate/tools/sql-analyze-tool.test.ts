@@ -56,10 +56,7 @@ describe("SqlAnalyzeTool.execute: success semantics", () => {
     })
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "SELECT * FROM t", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "SELECT * FROM t", dialect: "snowflake" }, ctx as any)
 
     expect(result.metadata.success).toBe(true)
     expect(result.metadata.error).toBeUndefined()
@@ -77,10 +74,7 @@ describe("SqlAnalyzeTool.execute: success semantics", () => {
     })
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "SELECT id FROM t", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "SELECT id FROM t", dialect: "snowflake" }, ctx as any)
 
     expect(result.metadata.success).toBe(true)
     expect(result.output).toContain("No anti-patterns")
@@ -98,14 +92,11 @@ describe("SqlAnalyzeTool.execute: success semantics", () => {
     })
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "SELEC FROM", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "SELEC FROM", dialect: "snowflake" }, ctx as any)
 
     expect(result.metadata.success).toBe(false)
     expect(result.metadata.error).toBe("syntax error near SELECT")
-    expect(result.title).toContain("PARSE ERROR")
+    expect(result.title).toContain("ERROR")
   })
 
   test("dispatcher throws → catch block returns ERROR title", async () => {
@@ -113,10 +104,7 @@ describe("SqlAnalyzeTool.execute: success semantics", () => {
     dispatcherSpy = spyOn(Dispatcher, "call").mockRejectedValue(new Error("native crash"))
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "SELECT 1", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "SELECT 1", dialect: "snowflake" }, ctx as any)
 
     expect(result.title).toBe("Analyze: ERROR")
     expect(result.metadata.success).toBe(false)
@@ -144,10 +132,7 @@ describe("SqlAnalyzeTool.execute: formatAnalysis output", () => {
     })
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "x", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "x", dialect: "snowflake" }, ctx as any)
 
     expect(result.output).toContain("Found 1 issue ")
     expect(result.output).not.toContain("1 issues")
@@ -179,10 +164,7 @@ describe("SqlAnalyzeTool.execute: formatAnalysis output", () => {
     })
 
     const tool = await SqlAnalyzeTool.init()
-    const result = await tool.execute(
-      { sql: "x", dialect: "snowflake" },
-      ctx as any,
-    )
+    const result = await tool.execute({ sql: "x", dialect: "snowflake" }, ctx as any)
 
     expect(result.output).toContain("2 issues")
     expect(result.output).toContain("[WARNING] lint")

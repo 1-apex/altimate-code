@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreRewriteTool = Tool.define("altimate_core_rewrite", {
   description:
-    "Suggest query optimization rewrites using the Rust-based altimate-core engine. Analyzes SQL and proposes concrete rewrites for better performance.",
+    "Suggest query optimization rewrites. Analyzes SQL and proposes concrete rewrites for better performance. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     sql: z.string().describe("SQL query to optimize"),
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
@@ -17,17 +17,22 @@ export const AltimateCoreRewriteTool = Tool.define("altimate_core_rewrite", {
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const suggestions = data.suggestions ?? data.rewrites ?? []
       const rewriteCount = suggestions.length || (data.rewritten_sql && data.rewritten_sql !== args.sql ? 1 : 0)
+      const error = result.error ?? data.error
       return {
         title: `Rewrite: ${rewriteCount} suggestion(s)`,
-        metadata: { success: result.success, rewrite_count: rewriteCount },
+        metadata: { success: result.success, rewrite_count: rewriteCount, ...(error && { error }) },
         output: formatRewrite(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Rewrite: ERROR", metadata: { success: false, rewrite_count: 0 }, output: `Failed: ${msg}` }
+      return {
+        title: "Rewrite: ERROR",
+        metadata: { success: false, rewrite_count: 0, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

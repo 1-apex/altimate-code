@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreCompareTool = Tool.define("altimate_core_compare", {
   description:
-    "Structurally compare two SQL queries using the Rust-based altimate-core engine. Identifies differences in table references, join conditions, filters, projections, and aggregations.",
+    "Structurally compare two SQL queries. Identifies differences in table references, join conditions, filters, projections, and aggregations.",
   parameters: z.object({
     left_sql: z.string().describe("First SQL query"),
     right_sql: z.string().describe("Second SQL query"),
@@ -17,16 +17,21 @@ export const AltimateCoreCompareTool = Tool.define("altimate_core_compare", {
         right_sql: args.right_sql,
         dialect: args.dialect ?? "",
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const diffCount = data.differences?.length ?? 0
+      const error = result.error ?? data.error
       return {
         title: `Compare: ${diffCount === 0 ? "IDENTICAL" : `${diffCount} difference(s)`}`,
-        metadata: { success: result.success, difference_count: diffCount },
+        metadata: { success: result.success, difference_count: diffCount, ...(error && { error }) },
         output: formatCompare(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Compare: ERROR", metadata: { success: false, difference_count: 0 }, output: `Failed: ${msg}` }
+      return {
+        title: "Compare: ERROR",
+        metadata: { success: false, difference_count: 0, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

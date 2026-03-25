@@ -7,7 +7,9 @@ export const SchemaSearchTool = Tool.define("schema_search", {
   description:
     "Search indexed warehouse metadata for tables and columns. Supports natural language queries like 'customer tables', 'price columns', 'order date fields'. Requires schema_index to be run first.",
   parameters: z.object({
-    query: z.string().describe("Search query — table names, column names, data types, or natural language descriptions"),
+    query: z
+      .string()
+      .describe("Search query — table names, column names, data types, or natural language descriptions"),
     warehouse: z.string().optional().describe("Limit search to a specific warehouse connection"),
     limit: z.number().optional().describe("Max results per category (default 20)"),
   }),
@@ -40,7 +42,7 @@ export const SchemaSearchTool = Tool.define("schema_search", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Schema Search: ERROR",
-        metadata: { matchCount: 0, tableCount: 0, columnCount: 0 },
+        metadata: { matchCount: 0, tableCount: 0, columnCount: 0, error: msg },
         output: `Failed to search schema: ${msg}\n\nEnsure schema_index has been run and the dispatcher is running.`,
       }
     }

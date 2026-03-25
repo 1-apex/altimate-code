@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreGradeTool = Tool.define("altimate_core_grade", {
   description:
-    "Grade SQL quality on an A-F scale using the Rust-based altimate-core engine. Evaluates readability, performance, correctness, and best practices to produce an overall quality grade.",
+    "Grade SQL quality on an A-F scale. Evaluates readability, performance, correctness, and best practices to produce an overall quality grade. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     sql: z.string().describe("SQL query to grade"),
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
@@ -17,17 +17,22 @@ export const AltimateCoreGradeTool = Tool.define("altimate_core_grade", {
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const grade = data.overall_grade ?? data.grade
       const score = data.scores?.overall != null ? Math.round(data.scores.overall * 100) : data.score
+      const error = result.error ?? data.error
       return {
         title: `Grade: ${grade ?? "?"}`,
-        metadata: { success: result.success, grade, score },
+        metadata: { success: result.success, grade, score, ...(error && { error }) },
         output: formatGrade(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Grade: ERROR", metadata: { success: false, grade: null, score: null }, output: `Failed: ${msg}` }
+      return {
+        title: "Grade: ERROR",
+        metadata: { success: false, grade: null, score: null, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

@@ -30,6 +30,7 @@ export const SqlTranslateTool = Tool.define("sql_translate", {
           source_dialect: result.source_dialect,
           target_dialect: result.target_dialect,
           warningCount: result.warnings.length,
+          ...(result.error && { error: result.error }),
         },
         output: formatTranslation(result, args.sql),
       }
@@ -37,7 +38,13 @@ export const SqlTranslateTool = Tool.define("sql_translate", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: `Translate: ERROR`,
-        metadata: { success: false, source_dialect: args.source_dialect, target_dialect: args.target_dialect, warningCount: 0 },
+        metadata: {
+          success: false,
+          source_dialect: args.source_dialect,
+          target_dialect: args.target_dialect,
+          warningCount: 0,
+          error: msg,
+        },
         output: `Failed to translate SQL: ${msg}\n\nCheck your connection configuration and try again.`,
       }
     }

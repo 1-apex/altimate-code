@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreTestgenTool = Tool.define("altimate_core_testgen", {
   description:
-    "Generate automated SQL test cases using the Rust-based altimate-core engine. Produces boundary value tests, NULL handling tests, edge cases, and expected result assertions for a given SQL query.",
+    "Generate automated SQL test cases. Produces boundary value tests, NULL handling tests, edge cases, and expected result assertions for a given SQL query. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     sql: z.string().describe("SQL query to generate tests for"),
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
@@ -17,17 +17,22 @@ export const AltimateCoreTestgenTool = Tool.define("altimate_core_testgen", {
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const tests = data.tests ?? data.test_cases ?? data.generated_tests ?? []
       const testCount = tests.length
+      const error = result.error ?? data.error
       return {
         title: `TestGen: ${testCount} test(s) generated`,
-        metadata: { success: result.success, test_count: testCount },
+        metadata: { success: result.success, test_count: testCount, ...(error && { error }) },
         output: formatTestgen(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "TestGen: ERROR", metadata: { success: false, test_count: 0 }, output: `Failed: ${msg}` }
+      return {
+        title: "TestGen: ERROR",
+        metadata: { success: false, test_count: 0, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

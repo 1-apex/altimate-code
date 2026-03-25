@@ -9,7 +9,11 @@ export const SqlExplainTool = Tool.define("sql_explain", {
   parameters: z.object({
     sql: z.string().describe("SQL query to explain"),
     warehouse: z.string().optional().describe("Warehouse connection name"),
-    analyze: z.boolean().optional().default(false).describe("Run EXPLAIN ANALYZE (actually executes the query, slower but more accurate)"),
+    analyze: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Run EXPLAIN ANALYZE (actually executes the query, slower but more accurate)"),
   }),
   async execute(args, ctx) {
     try {
@@ -20,10 +24,11 @@ export const SqlExplainTool = Tool.define("sql_explain", {
       })
 
       if (!result.success) {
+        const error = result.error ?? "Unknown error"
         return {
           title: "Explain: FAILED",
-          metadata: { success: false, analyzed: false, warehouse_type: result.warehouse_type ?? "unknown" },
-          output: `Failed to get execution plan: ${result.error ?? "Unknown error"}`,
+          metadata: { success: false, analyzed: false, warehouse_type: result.warehouse_type ?? "unknown", error },
+          output: `Failed to get execution plan: ${error}`,
         }
       }
 
@@ -36,7 +41,7 @@ export const SqlExplainTool = Tool.define("sql_explain", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Explain: ERROR",
-        metadata: { success: false, analyzed: false, warehouse_type: "unknown" },
+        metadata: { success: false, analyzed: false, warehouse_type: "unknown", error: msg },
         output: `Failed to run EXPLAIN: ${msg}\n\nEnsure a warehouse connection is configured and the dispatcher is running.`,
       }
     }

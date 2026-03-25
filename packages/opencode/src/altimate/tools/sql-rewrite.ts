@@ -16,9 +16,7 @@ export const SqlRewriteTool = Tool.define("sql_rewrite", {
     schema_context: z
       .record(z.string(), z.any())
       .optional()
-      .describe(
-        'Optional schema mapping for SELECT * expansion. Format: {"table_name": {"col_name": "TYPE", ...}}',
-      ),
+      .describe('Optional schema mapping for SELECT * expansion. Format: {"table_name": {"col_name": "TYPE", ...}}'),
   }),
   async execute(args, ctx) {
     try {
@@ -45,7 +43,7 @@ export const SqlRewriteTool = Tool.define("sql_rewrite", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Rewrite: ERROR",
-        metadata: { success: false, rewriteCount: 0, autoApplyCount: 0, hasRewrittenSql: false },
+        metadata: { success: false, rewriteCount: 0, autoApplyCount: 0, hasRewrittenSql: false, error: msg },
         output: `Failed to rewrite SQL: ${msg}\n\nCheck your connection configuration and try again.`,
       }
     }

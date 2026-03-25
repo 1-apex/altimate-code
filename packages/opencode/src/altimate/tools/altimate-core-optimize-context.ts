@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreOptimizeContextTool = Tool.define("altimate_core_optimize_context", {
   description:
-    "Optimize schema for LLM context window using the Rust-based altimate-core engine. Applies 5-level progressive disclosure to reduce schema size while preserving essential information.",
+    "Optimize schema for LLM context window. Applies 5-level progressive disclosure to reduce schema size while preserving essential information. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
     schema_context: z.record(z.string(), z.any()).optional().describe("Inline schema definition"),
@@ -15,15 +15,16 @@ export const AltimateCoreOptimizeContextTool = Tool.define("altimate_core_optimi
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
+      const error = result.error ?? data.error
       return {
         title: `Optimize Context: ${data.levels?.length ?? 0} level(s)`,
-        metadata: { success: result.success },
+        metadata: { success: result.success, ...(error && { error }) },
         output: formatOptimizeContext(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Optimize Context: ERROR", metadata: { success: false }, output: `Failed: ${msg}` }
+      return { title: "Optimize Context: ERROR", metadata: { success: false, error: msg }, output: `Failed: ${msg}` }
     }
   },
 })

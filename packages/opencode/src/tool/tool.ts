@@ -11,6 +11,10 @@ import { Telemetry } from "../altimate/telemetry"
 export namespace Tool {
   interface Metadata {
     [key: string]: any
+    // altimate_change start — standard error field for telemetry extraction
+    /** Standard error field — set by tools on failure so telemetry can extract it. */
+    error?: string
+    // altimate_change end
   }
 
   export interface InitContext {
@@ -49,10 +53,12 @@ export namespace Tool {
   export type InferParameters<T extends Info> = T extends Info<infer P> ? z.infer<P> : never
   export type InferMetadata<T extends Info> = T extends Info<any, infer M> ? M : never
 
-  export function define<Parameters extends z.ZodType, Result extends Metadata>(
+  // altimate_change start — simplify define() signature, Result generic was unused
+  export function define<Parameters extends z.ZodType>(
     id: string,
-    init: Info<Parameters, Result>["init"] | Awaited<ReturnType<Info<Parameters, Result>["init"]>>,
-  ): Info<Parameters, Result> {
+    init: Info<Parameters>["init"] | Awaited<ReturnType<Info<Parameters>["init"]>>,
+  ): Info<Parameters> {
+    // altimate_change end
     return {
       id,
       init: async (initCtx) => {
@@ -138,6 +144,7 @@ export namespace Tool {
               })
             }
             if (isSoftFailure) {
+              // prettier-ignore
               const errorMsg =
                 typeof result.metadata?.error === "string"
                   ? result.metadata.error
@@ -156,6 +163,25 @@ export namespace Tool {
                 duration_ms: durationMs,
               })
             }
+            // altimate_change start — emit sql_quality when tools report findings
+            // Only emit for successful tool runs — soft failures already emit core_failure
+            const findings = result.metadata?.findings as Telemetry.Finding[] | undefined
+            if (!isSoftFailure && Array.isArray(findings) && findings.length > 0) {
+              const by_category = Telemetry.aggregateFindings(findings)
+              Telemetry.track({
+                type: "sql_quality",
+                timestamp: Date.now(),
+                session_id: ctx.sessionID,
+                tool_name: id,
+                tool_category: toolCategory,
+                finding_count: findings.length,
+                by_category: JSON.stringify(by_category),
+                has_schema: result.metadata?.has_schema ?? false,
+                ...(result.metadata?.dialect && { dialect: result.metadata.dialect as string }),
+                duration_ms: durationMs,
+              })
+            }
+            // altimate_change end
           } catch {
             // Telemetry must never break tool execution
           }

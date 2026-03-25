@@ -27,7 +27,9 @@ export const SqlDiffTool = Tool.define("sql_diff", {
       }
 
       const lines: string[] = []
-      lines.push(`${result.change_count} change${result.change_count !== 1 ? "s" : ""} (+${result.additions} -${result.deletions}), ${(result.similarity * 100).toFixed(1)}% similar`)
+      lines.push(
+        `${result.change_count} change${result.change_count !== 1 ? "s" : ""} (+${result.additions} -${result.deletions}), ${(result.similarity * 100).toFixed(1)}% similar`,
+      )
       lines.push("")
       lines.push(result.unified_diff)
 
@@ -40,7 +42,7 @@ export const SqlDiffTool = Tool.define("sql_diff", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Diff: ERROR",
-        metadata: { has_changes: false, change_count: 0, similarity: 0 },
+        metadata: { has_changes: false, change_count: 0, similarity: 0, error: msg },
         output: `Failed to diff SQL: ${msg}`,
       }
     }

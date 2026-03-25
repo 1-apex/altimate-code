@@ -13,8 +13,7 @@ function formatQueryHistory(summary: Record<string, unknown>, queries: unknown[]
     lines.push(`Avg execution time: ${Number(summary.avg_execution_time).toFixed(2)}s`)
   if (summary.total_bytes_scanned !== undefined)
     lines.push(`Total bytes scanned: ${formatBytes(Number(summary.total_bytes_scanned))}`)
-  if (summary.period_days !== undefined)
-    lines.push(`Period: ${summary.period_days} days`)
+  if (summary.period_days !== undefined) lines.push(`Period: ${summary.period_days} days`)
 
   const arr = Array.isArray(queries) ? queries : []
   if (arr.length === 0) {
@@ -65,10 +64,11 @@ export const FinopsQueryHistoryTool = Tool.define("finops_query_history", {
       })
 
       if (!result.success) {
+        const error = result.error ?? "Unknown error"
         return {
           title: "Query History: FAILED",
-          metadata: { success: false, query_count: 0 },
-          output: `Failed to fetch query history: ${result.error ?? "Unknown error"}`,
+          metadata: { success: false, query_count: 0, error },
+          output: `Failed to fetch query history: ${error}`,
         }
       }
 
@@ -82,7 +82,7 @@ export const FinopsQueryHistoryTool = Tool.define("finops_query_history", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: "Query History: ERROR",
-        metadata: { success: false, query_count: 0 },
+        metadata: { success: false, query_count: 0, error: msg },
         output: `Failed to fetch query history: ${msg}`,
       }
     }

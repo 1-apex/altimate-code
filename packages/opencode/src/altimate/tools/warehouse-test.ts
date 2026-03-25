@@ -3,7 +3,8 @@ import { Tool } from "../../tool/tool"
 import { Dispatcher } from "../native"
 
 export const WarehouseTestTool = Tool.define("warehouse_test", {
-  description: "Test connectivity to a named warehouse connection. Verifies the connection is reachable and credentials are valid.",
+  description:
+    "Test connectivity to a named warehouse connection. Verifies the connection is reachable and credentials are valid.",
   parameters: z.object({
     name: z.string().describe("Name of the warehouse connection to test"),
   }),
@@ -28,7 +29,7 @@ export const WarehouseTestTool = Tool.define("warehouse_test", {
       const msg = e instanceof Error ? e.message : String(e)
       return {
         title: `Connection '${args.name}': ERROR`,
-        metadata: { connected: false },
+        metadata: { connected: false, error: msg },
         output: `Failed to test connection: ${msg}\n\nCheck your connection configuration and try again.`,
       }
     }

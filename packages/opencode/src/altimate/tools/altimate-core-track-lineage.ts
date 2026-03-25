@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreTrackLineageTool = Tool.define("altimate_core_track_lineage", {
   description:
-    "Track lineage across multiple SQL queries using the Rust-based altimate-core engine. Builds a combined lineage graph from a sequence of queries. Requires altimate_core.init() with API key.",
+    "Track lineage across multiple SQL queries. Builds a combined lineage graph from a sequence of queries. Requires altimate_core.init() with API key. Provide schema_context or schema_path for accurate table/column resolution.",
   parameters: z.object({
     queries: z.array(z.string()).describe("List of SQL queries to track lineage across"),
     schema_path: z.string().optional().describe("Path to YAML/JSON schema file"),
@@ -17,16 +17,21 @@ export const AltimateCoreTrackLineageTool = Tool.define("altimate_core_track_lin
         schema_path: args.schema_path ?? "",
         schema_context: args.schema_context,
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
       const edgeCount = data.edges?.length ?? 0
+      const error = result.error ?? data.error
       return {
         title: `Track Lineage: ${edgeCount} edge(s) across ${args.queries.length} queries`,
-        metadata: { success: result.success, edge_count: edgeCount },
+        metadata: { success: result.success, edge_count: edgeCount, ...(error && { error }) },
         output: formatTrackLineage(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Track Lineage: ERROR", metadata: { success: false, edge_count: 0 }, output: `Failed: ${msg}` }
+      return {
+        title: "Track Lineage: ERROR",
+        metadata: { success: false, edge_count: 0, error: msg },
+        output: `Failed: ${msg}`,
+      }
     }
   },
 })

@@ -4,7 +4,7 @@ import { Dispatcher } from "../native"
 
 export const AltimateCoreImportDdlTool = Tool.define("altimate_core_import_ddl", {
   description:
-    "Convert CREATE TABLE DDL into YAML schema definition using the Rust-based altimate-core engine. Parses DDL statements and produces a structured schema that other altimate-core tools can consume.",
+    "Convert CREATE TABLE DDL into YAML schema definition. Parses DDL statements and produces a structured schema that other altimate-core tools can consume.",
   parameters: z.object({
     ddl: z.string().describe("CREATE TABLE DDL statements to parse"),
     dialect: z.string().optional().describe("SQL dialect of the DDL"),
@@ -15,15 +15,16 @@ export const AltimateCoreImportDdlTool = Tool.define("altimate_core_import_ddl",
         ddl: args.ddl,
         dialect: args.dialect ?? "",
       })
-      const data = result.data as Record<string, any>
+      const data = (result.data ?? {}) as Record<string, any>
+      const error = result.error ?? data.error
       return {
         title: "Import DDL: done",
-        metadata: { success: result.success },
+        metadata: { success: result.success, ...(error && { error }) },
         output: formatImportDdl(data),
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return { title: "Import DDL: ERROR", metadata: { success: false }, output: `Failed: ${msg}` }
+      return { title: "Import DDL: ERROR", metadata: { success: false, error: msg }, output: `Failed: ${msg}` }
     }
   },
 })
