@@ -193,6 +193,21 @@ const targets = targetIndexFlag !== undefined
 
 await $`rm -rf dist`
 
+// Packages excluded from the compiled binary — must be resolvable from
+// node_modules at runtime. Split into required (must ship with the wrapper
+// package) and optional (user installs on demand).
+const requiredExternals = [
+  // NAPI native module — cannot be embedded in Bun single-file executable.
+  "@altimateai/altimate-core",
+]
+const optionalExternals = [
+  // Database drivers — native addons, users install on demand per warehouse
+  "pg", "snowflake-sdk", "@google-cloud/bigquery", "@databricks/sql",
+  "mysql2", "mssql", "oracledb", "duckdb",
+  // Optional infra packages — native addons or heavy optional deps
+  "keytar", "ssh2", "dockerode",
+]
+
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
@@ -225,27 +240,11 @@ for (const item of targets) {
     tsconfig: "./tsconfig.json",
     plugins: [solidPlugin],
     sourcemap: "external",
-    // Packages excluded from the compiled binary — resolved from node_modules
-    // at runtime. Bun compiled binaries resolve externals via standard Node
-    // resolution from the binary's location, walking up to the wrapper
-    // package's node_modules.
-    //
     // IMPORTANT: Without code splitting, Bun inlines dynamic import() targets
     // into the main chunk. Any external require() in those targets will fail
     // at startup — not when the import() is called. Only mark packages as
     // external when they truly cannot be bundled (e.g. NAPI native addons).
-    external: [
-      // NAPI native module — cannot be embedded in Bun single-file executable.
-      // The JS loader dynamically require()s platform-specific .node binaries
-      // (e.g. @altimateai/altimate-core-darwin-arm64).
-      // Must be installed as a dependency of the published wrapper package.
-      "@altimateai/altimate-core",
-      // Database drivers — native addons, users install on demand per warehouse
-      "pg", "snowflake-sdk", "@google-cloud/bigquery", "@databricks/sql",
-      "mysql2", "mssql", "oracledb", "duckdb",
-      // Optional infra packages — native addons or heavy optional deps
-      "keytar", "ssh2", "dockerode",
-    ],
+    external: [...requiredExternals, ...optionalExternals],
     compile: {
       autoloadBunfig: false,
       autoloadDotenv: false,
@@ -291,6 +290,37 @@ for (const item of targets) {
     ),
   )
   binaries[name] = Script.version
+}
+
+// ---------------------------------------------------------------------------
+// Build-time verification: ensure required externals are in package.json
+// dependencies so they ship with the npm wrapper package. This catches the
+// scenario where a new NAPI module is added to `external` but not to
+// package.json dependencies — which would compile fine but crash at runtime.
+// ---------------------------------------------------------------------------
+{
+  // Only check dependencies (not devDependencies) — publish.ts only ships
+  // dependencies to end users. A required external in devDependencies would
+  // pass this check but be missing for npm users.
+  const pkgDeps: Record<string, string> = {
+    ...pkg.dependencies,
+  }
+  const missing = requiredExternals.filter((ext) => !pkgDeps[ext])
+  if (missing.length > 0) {
+    const msg =
+      `Required external(s) not in package.json: ${missing.join(", ")}\n` +
+      `These packages are marked as external in the binary build but are not\n` +
+      `listed as dependencies. The binary will crash at runtime.\n` +
+      `Add them to "dependencies" in packages/opencode/package.json.`
+    if (Script.release) {
+      console.error(`FATAL: ${msg}`)
+      process.exit(1)
+    } else {
+      console.warn(`WARNING: ${msg}`)
+    }
+  } else {
+    console.log(`Verified ${requiredExternals.length} required external(s) are in package.json`)
+  }
 }
 
 if (Script.release) {

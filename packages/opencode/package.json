@@ -12,7 +12,8 @@
     "build:local": "bun run script/build.ts --single --skip-install",
     "local": "./script/local.sh",
     "dev": "bun run --conditions=browser ./src/index.ts",
-    "db": "bun drizzle-kit"
+    "db": "bun drizzle-kit",
+    "pre-release": "bun run script/pre-release-check.ts"
   },
   "bin": {
     "altimate": "./bin/altimate",

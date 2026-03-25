@@ -48,7 +48,23 @@ Add a new section at the top of `CHANGELOG.md`:
 - ...
 ```
 
-### 2. Commit and tag
+### 2. Run pre-release sanity check
+
+**MANDATORY** — this catches broken binaries before they reach users:
+
+```bash
+cd packages/opencode
+bun run pre-release
+```
+
+This verifies:
+- All required NAPI externals are in `package.json` dependencies
+- They're installed in `node_modules`
+- A local build produces a binary that actually starts
+
+Do NOT proceed if any check fails.
+
+### 3. Commit and tag
 
 ```bash
 git add -A
@@ -57,7 +73,7 @@ git tag v0.5.0
 git push origin main v0.5.0
 ```
 
-### 3. What happens automatically
+### 4. What happens automatically
 
 The `v*` tag triggers `.github/workflows/release.yml` which:
 
@@ -67,7 +83,7 @@ The `v*` tag triggers `.github/workflows/release.yml` which:
 4. **Updates AUR** — pushes PKGBUILD update to `altimate-code-bin`
 5. **Publishes Docker image** — to `ghcr.io/altimateai/altimate-code`
 
-### 4. Verify
+### 5. Verify
 
 After the workflow completes:
 

@@ -99,6 +99,25 @@ jobs:
           GH_REPO: ${{ env.GH_REPO }}
           MODELS_DEV_API_JSON: test/tool/fixtures/models-api.json
 
+      # Smoke-test: verify the compiled binary actually starts.
+      # Only possible for native linux-x64 builds on the ubuntu runner.
+      # This catches missing externals (e.g. @altimateai/altimate-core)
+      # that compile fine but crash at runtime.
+      - name: Smoke test binary
+        if: matrix.name == 'linux-x64'
+        run: |
+          BINARY=$(find packages/opencode/dist -name altimate -type f | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "::error::No binary found in dist/"
+            exit 1
+          fi
+          chmod +x "$BINARY"
+
+          # Set NODE_PATH so the binary can resolve external NAPI modules
+          # (mirrors what the npm bin wrapper does at runtime)
+          NODE_PATH="$(pwd)/packages/opencode/node_modules:$(pwd)/node_modules" "$BINARY" --version
+          echo "Smoke test passed: binary starts and prints version"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -167,6 +186,21 @@ jobs:
       #     EOF
       #   env:
       #     AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+      # Smoke-test a linux-x64 binary from the downloaded artifacts before publishing.
+      # This is the last gate before npm publish — catches runtime crashes that
+      # compile-time checks miss (e.g. missing NAPI externals like v0.5.10).
+      - name: Pre-publish smoke test
+        run: |
+          BINARY=$(find packages/opencode/dist -path '*altimate-code-linux-x64/bin/altimate' -type f | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "::error::No linux-x64 binary found in artifacts — cannot verify release"
+            exit 1
+          else
+            chmod +x "$BINARY"
+            NODE_PATH="$(pwd)/packages/opencode/node_modules:$(pwd)/node_modules" "$BINARY" --version
+            echo "Pre-publish smoke test passed"
+          fi
 
       - name: Publish to npm
         run: bun run packages/opencode/script/publish.ts
