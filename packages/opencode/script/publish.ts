@@ -107,6 +107,18 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
   ),
 )
 
+// Verify npm auth before publishing
+console.log("Verifying npm authentication...")
+const npmrcPath = process.env.NPM_CONFIG_USERCONFIG || "~/.npmrc"
+console.log(`NPM_CONFIG_USERCONFIG=${npmrcPath}`)
+try {
+  const whoami = await $`npm whoami`.text()
+  console.log(`npm whoami: ${whoami.trim()}`)
+} catch (e: any) {
+  console.error("npm whoami failed — auth may be misconfigured:", e?.stderr || e)
+  process.exit(1)
+}
+
 const tasks = Object.entries(binaries).map(async ([name]) => {
   if (process.platform !== "win32") {
     await $`chmod -R 755 .`.cwd(`./dist/${name}`)
