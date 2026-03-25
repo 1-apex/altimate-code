@@ -36,6 +36,9 @@ import { TraceCommand } from "./cli/cmd/trace"
 // altimate_change start — top-level skill command
 import { SkillCommand } from "./cli/cmd/skill"
 // altimate_change end
+// altimate_change start — check: deterministic SQL check command
+import { CheckCommand } from "./cli/cmd/check"
+// altimate_change end
 import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
@@ -126,15 +129,18 @@ let cli = yargs(hideBin(process.argv))
 
     // altimate_change start - app name in logs
     Log.Default.info("altimate-code", {
-    // altimate_change end
+      // altimate_change end
       version: Installation.VERSION,
       args: process.argv.slice(2),
     })
 
+    // altimate_change start — check: skip DB migration for stateless commands (check only needs Dispatcher)
+    const isStatelessCommand = process.argv[2] === "check"
+    // altimate_change end
     // altimate_change start - db marker name
     const marker = path.join(Global.Path.data, "altimate-code.db")
     // altimate_change end
-    if (!(await Filesystem.exists(marker))) {
+    if (!isStatelessCommand && !(await Filesystem.exists(marker))) {
       const tty = process.stderr.isTTY
       process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
       const width = 36
@@ -200,6 +206,9 @@ let cli = yargs(hideBin(process.argv))
   // altimate_change start — top-level skill command
   .command(SkillCommand)
   // altimate_change end
+  // altimate_change start — check: register deterministic SQL check command
+  .command(CheckCommand)
+// altimate_change end
 
 if (Installation.isLocal()) {
   cli = cli.command(WorkspaceServeCommand)
