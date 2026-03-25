@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.10] - 2026-03-24
+
+### Added
+
+- **`altimate-code check` CLI command** — deterministic SQL checks (linting, formatting, style) that run without an LLM, suitable for CI pipelines and pre-commit hooks (#453)
+- **Data-viz skill improvements** — lazy initialization, data-code separation, color contrast rules, icon semantics, field validation, and pre-delivery checklist (#434)
+
+### Fixed
+
+- **Snowflake Cortex not visible before authentication** — provider now appears in the provider list even when not yet authenticated (#447)
+- **New user detection race condition** — first-run welcome flow and telemetry events could fire out of order or be skipped entirely (#445)
+- **52 CI test failures from `mock.module` leaking across files** — test isolation fix for the new `check` command e2e tests (#460)
+- **Missing `altimate_change` marker** — added required upstream marker on `isStatelessCommand` guard to pass Marker Guard CI (#457)
+
+### Changed
+
+- **Rename Recap back to Trace** — reverted the Recap branding to Trace across 29 files for better AI model comprehension of session recording concepts (#443)
+
+### Testing
+
+- Consolidated 12 hourly test PRs into single batch: slugify, hints sort, skill formatting, batch tools, filesystem utilities, wildcard matching — 1,680 new test lines (#439)
+- `altimate-code check` unit + e2e test suites (1,687 lines) (#453)
+- Snowflake Cortex provider visibility tests (#447)
+
 ## [0.5.9] - 2026-03-23
 
 ### Fixed
