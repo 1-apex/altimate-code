@@ -178,11 +178,14 @@ Contributions welcome — docs, SQL rules, warehouse connectors, and TUI improve
 
 ## Changelog
 
-- **v0.5.0** (March 2026) — smooth streaming mode, builtin skills via postinstall, `/configure-claude` and `/configure-codex` commands, warehouse auth hardening
-- **v0.4.9** (March 2026) — Snowflake auth overhaul (all auth methods), dbt tool regression fixes, parallel CI builds
-- **v0.4.2** (March 2026) — yolo mode, Python engine elimination (all-native TypeScript), tool consolidation, path sandboxing hardening, altimate-dbt CLI, unscoped npm package
-- **v0.4.0** (March 2026) — data visualization skill, 100+ tools, training system
-- **v0.3.x** — [See full changelog →](CHANGELOG.md)
+- **v0.5.11** (March 2026) — `altimate-code check` CLI command, data-viz improvements, Codespaces support, session tracing, 52 CI test fix
+- **v0.5.7** (March 2026) — impact analysis tool, training import, CI check command, `--max-turns` budget, LM Studio provider
+- **v0.5.6** (March 2026) — skill CLI & TUI management, GitHub skill install, Snowflake Cortex provider
+- **v0.5.5** (March 2026) — auto-discover MCP servers from VS Code, Cursor, Claude Code, Copilot configs
+- **v0.5.3** (March 2026) — bundle skills/dbt-tools in npm binary, marker guard CI
+- **v0.5.1** (March 2026) — simplified 3-mode agents (builder/analyst/plan), SQL write access control
+- **v0.5.0** (March 2026) — smooth streaming mode, builtin skills, `/configure-claude` and `/configure-codex` commands
+- **v0.4.x and earlier** — [See full changelog →](CHANGELOG.md)
 
 ## License
 
