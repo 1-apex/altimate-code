@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.13] - 2026-03-26
+
+### Fixed
+
+- **Pin `@altimateai/altimate-core` to exact version** — prevents npm from resolving stale cached binaries during install (#475)
+- **Flaky `dbt Profiles Auto-Discovery` tests in CI** — stabilized tests that failed intermittently due to timing issues
+
+### Changed
+
+- **Bump `yaml` from 2.8.2 to 2.8.3** — dependency update in `packages/opencode` (#473)
+
 ## [0.5.12] - 2026-03-25
 
 ### Added
