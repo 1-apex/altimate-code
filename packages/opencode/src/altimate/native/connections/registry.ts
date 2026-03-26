@@ -126,17 +126,14 @@ const DRIVER_MAP: Record<string, string> = {
   duckdb: "@altimateai/drivers/duckdb",
   oracle: "@altimateai/drivers/oracle",
   sqlite: "@altimateai/drivers/sqlite",
+  mongodb: "@altimateai/drivers/mongodb",
+  mongo: "@altimateai/drivers/mongodb",
 }
 
-async function createConnector(
-  name: string,
-  config: ConnectionConfig,
-): Promise<Connector> {
+async function createConnector(name: string, config: ConnectionConfig): Promise<Connector> {
   const driverPath = DRIVER_MAP[config.type.toLowerCase()]
   if (!driverPath) {
-    throw new Error(
-      `Unsupported database type: ${config.type}. Supported: ${Object.keys(DRIVER_MAP).join(", ")}`,
-    )
+    throw new Error(`Unsupported database type: ${config.type}. Supported: ${Object.keys(DRIVER_MAP).join(", ")}`)
   }
 
   // Normalize field names first (camelCase → snake_case, dbt → canonical)
@@ -193,6 +190,9 @@ async function createConnector(
       case "@altimateai/drivers/sqlite":
         mod = await import("@altimateai/drivers/sqlite")
         break
+      case "@altimateai/drivers/mongodb":
+        mod = await import("@altimateai/drivers/mongodb")
+        break
       default:
         throw new Error(`No static import available for driver: ${driverPath}`)
     }
@@ -216,19 +216,25 @@ export function detectAuthMethod(config: ConnectionConfig | null | undefined): s
   if (config.connection_string) return "connection_string"
   if (config.private_key_path || config.privateKeyPath || config.private_key || config.privateKey) return "key_pair"
   const auth = typeof config.authenticator === "string" ? config.authenticator.toUpperCase() : ""
-  if (auth === "EXTERNALBROWSER" || (typeof config.authenticator === "string" && /^https?:\/\/.+\.okta\.com/i.test(config.authenticator))) return "sso"
+  if (
+    auth === "EXTERNALBROWSER" ||
+    (typeof config.authenticator === "string" && /^https?:\/\/.+\.okta\.com/i.test(config.authenticator))
+  )
+    return "sso"
   if (auth === "OAUTH") return "oauth"
   if (config.access_token || config.token) return "token"
   if (config.password) return "password"
   const t = typeof config.type === "string" ? config.type.toLowerCase() : ""
   if (t === "duckdb" || t === "sqlite") return "file"
+  if (t === "mongodb" || t === "mongo") return config.password ? "password" : "connection_string"
   return "unknown"
 }
 
 export function categorizeConnectionError(e: unknown): string {
   const msg = String(e).toLowerCase()
   if (msg.includes("not installed") || msg.includes("cannot find module")) return "driver_missing"
-  if (msg.includes("password") || msg.includes("authentication") || msg.includes("unauthorized") || msg.includes("jwt")) return "auth_failed"
+  if (msg.includes("password") || msg.includes("authentication") || msg.includes("unauthorized") || msg.includes("jwt"))
+    return "auth_failed"
   if (msg.includes("timeout") || msg.includes("timed out")) return "timeout"
   if (msg.includes("econnrefused") || msg.includes("enotfound") || msg.includes("network")) return "network_error"
   if (msg.includes("config") || msg.includes("not found") || msg.includes("missing")) return "config_error"
@@ -252,9 +258,7 @@ export async function get(name: string): Promise<Connector> {
 
   const config = configs.get(name)
   if (!config) {
-    throw new Error(
-      `Connection "${name}" not found. Available: ${Array.from(configs.keys()).join(", ") || "(none)"}`,
-    )
+    throw new Error(`Connection "${name}" not found. Available: ${Array.from(configs.keys()).join(", ") || "(none)"}`)
   }
 
   const startTime = Date.now()
@@ -347,13 +351,22 @@ export function list(): { warehouses: WarehouseInfo[] } {
   return { warehouses }
 }
 
-/** Test a connection by running SELECT 1. */
-export async function test(
-  name: string,
-): Promise<{ connected: boolean; error?: string }> {
+/** Test a connection by running a simple query. */
+export async function test(name: string): Promise<{ connected: boolean; error?: string }> {
   try {
     const connector = await get(name)
-    await connector.execute("SELECT 1")
+    const config = configs.get(name)
+    const dbType = config?.type?.toLowerCase()
+    if (dbType === "mongodb" || dbType === "mongo") {
+      // MongoDB doesn't support SQL — use the standard ping command
+      await connector.execute(
+        JSON.stringify({
+          command: "ping",
+        }),
+      )
+    } else {
+      await connector.execute("SELECT 1")
+    }
     return { connected: true }
   } catch (e) {
     return { connected: false, error: String(e) }
@@ -402,7 +415,11 @@ export async function add(
       connectors.delete(name)
     }
 
-    const result: { success: boolean; name: string; type: string; warnings?: string[] } = { success: true, name, type: config.type }
+    const result: { success: boolean; name: string; type: string; warnings?: string[] } = {
+      success: true,
+      name,
+      type: config.type,
+    }
     if (warnings.length > 0) {
       result.warnings = warnings
     }
@@ -413,9 +430,7 @@ export async function add(
 }
 
 /** Remove a connection from global config. */
-export async function remove(
-  name: string,
-): Promise<{ success: boolean; error?: string }> {
+export async function remove(name: string): Promise<{ success: boolean; error?: string }> {
   try {
     ensureLoaded()
 
@@ -481,9 +496,7 @@ export function reset(): void {
 /**
  * Set configs directly (for testing without file system).
  */
-export function setConfigs(
-  newConfigs: Record<string, ConnectionConfig>,
-): void {
+export function setConfigs(newConfigs: Record<string, ConnectionConfig>): void {
   configs.clear()
   for (const [name, config] of Object.entries(newConfigs)) {
     configs.set(name, config)
