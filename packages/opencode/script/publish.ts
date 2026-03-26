@@ -21,14 +21,14 @@ const runtimeDependencies: Record<string, string> = {
 }
 
 const driverPeerDependencies: Record<string, string> = {
-  "pg": ">=8",
+  pg: ">=8",
   "snowflake-sdk": ">=1",
   "@google-cloud/bigquery": ">=8",
   "@databricks/sql": ">=1",
-  "mysql2": ">=3",
-  "mssql": ">=11",
-  "oracledb": ">=6",
-  "duckdb": ">=1",
+  mysql2: ">=3",
+  mssql: ">=11",
+  oracledb: ">=6",
+  duckdb: ">=1",
 }
 
 const driverPeerDependenciesMeta: Record<string, { optional: true }> = Object.fromEntries(
@@ -65,13 +65,14 @@ async function copyAssets(targetDir: string) {
   await $`cp ../dbt-tools/bin/altimate-dbt ${targetDir}/dbt-tools/bin/altimate-dbt`
   await $`mkdir -p ${targetDir}/dbt-tools/dist`
   await $`cp ../dbt-tools/dist/index.js ${targetDir}/dbt-tools/dist/`
+  // node_python_bridge.py must live next to index.js — the patched __dirname
+  // resolves to this directory at runtime (see copy-python.ts)
+  await $`cp ../dbt-tools/dist/node_python_bridge.py ${targetDir}/dbt-tools/dist/`
   // A package.json with "type": "module" must be present so Node loads
   // dist/index.js as ESM instead of CJS. We synthesize a minimal one rather
   // than copying the full source package.json (which contains devDependencies
   // with Bun catalog: versions that would confuse vulnerability scanners).
-  await Bun.file(`${targetDir}/dbt-tools/package.json`).write(
-    JSON.stringify({ type: "module" }, null, 2) + "\n",
-  )
+  await Bun.file(`${targetDir}/dbt-tools/package.json`).write(JSON.stringify({ type: "module" }, null, 2) + "\n")
   if (fs.existsSync("../dbt-tools/dist/altimate_python_packages")) {
     await $`cp -r ../dbt-tools/dist/altimate_python_packages ${targetDir}/dbt-tools/dist/`
   }
