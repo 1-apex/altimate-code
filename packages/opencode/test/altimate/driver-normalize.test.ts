@@ -663,3 +663,133 @@ describe("normalizeConfig — Snowflake private_key edge cases", () => {
     expect(result.private_key_path).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// normalizeConfig — MongoDB aliases
+// ---------------------------------------------------------------------------
+
+describe("normalizeConfig — MongoDB", () => {
+  test("canonical mongodb config passes through unchanged", () => {
+    const config = {
+      type: "mongodb",
+      host: "localhost",
+      port: 27017,
+      database: "mydb",
+      user: "admin",
+      password: "secret",
+    }
+    expect(normalizeConfig(config)).toEqual(config)
+  })
+
+  test("connectionString → connection_string", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      connectionString: "mongodb://admin:secret@localhost:27017/mydb",
+    })
+    expect(result.connection_string).toBe("mongodb://admin:secret@localhost:27017/mydb")
+    expect(result.connectionString).toBeUndefined()
+  })
+
+  test("uri → connection_string", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      uri: "mongodb+srv://admin:secret@cluster0.example.net/mydb",
+    })
+    expect(result.connection_string).toBe("mongodb+srv://admin:secret@cluster0.example.net/mydb")
+    expect(result.uri).toBeUndefined()
+  })
+
+  test("url → connection_string", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      url: "mongodb://localhost:27017/mydb",
+    })
+    expect(result.connection_string).toBe("mongodb://localhost:27017/mydb")
+    expect(result.url).toBeUndefined()
+  })
+
+  test("connection_string takes precedence over uri alias", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      connection_string: "mongodb://correct:27017/db",
+      uri: "mongodb://wrong:27017/db",
+    })
+    expect(result.connection_string).toBe("mongodb://correct:27017/db")
+    expect(result.uri).toBeUndefined()
+  })
+
+  test("authSource → auth_source", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      authSource: "admin",
+    })
+    expect(result.auth_source).toBe("admin")
+    expect(result.authSource).toBeUndefined()
+  })
+
+  test("replicaSet → replica_set", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      replicaSet: "rs0",
+    })
+    expect(result.replica_set).toBe("rs0")
+    expect(result.replicaSet).toBeUndefined()
+  })
+
+  test("directConnection → direct_connection", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      directConnection: true,
+    })
+    expect(result.direct_connection).toBe(true)
+    expect(result.directConnection).toBeUndefined()
+  })
+
+  test("connectTimeoutMS → connect_timeout", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      connectTimeoutMS: 5000,
+    })
+    expect(result.connect_timeout).toBe(5000)
+    expect(result.connectTimeoutMS).toBeUndefined()
+  })
+
+  test("serverSelectionTimeoutMS → server_selection_timeout", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      serverSelectionTimeoutMS: 10000,
+    })
+    expect(result.server_selection_timeout).toBe(10000)
+    expect(result.serverSelectionTimeoutMS).toBeUndefined()
+  })
+
+  test("username → user for mongodb", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      username: "admin",
+    })
+    expect(result.user).toBe("admin")
+    expect(result.username).toBeUndefined()
+  })
+
+  test("dbname → database for mongodb", () => {
+    const result = normalizeConfig({
+      type: "mongodb",
+      dbname: "mydb",
+    })
+    expect(result.database).toBe("mydb")
+    expect(result.dbname).toBeUndefined()
+  })
+
+  test("mongo type alias works", () => {
+    const result = normalizeConfig({
+      type: "mongo",
+      username: "admin",
+      connectionString: "mongodb://localhost:27017/mydb",
+      authSource: "admin",
+    })
+    expect(result.user).toBe("admin")
+    expect(result.connection_string).toBe("mongodb://localhost:27017/mydb")
+    expect(result.auth_source).toBe("admin")
+  })
+})

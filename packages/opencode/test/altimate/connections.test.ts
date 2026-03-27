@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, beforeAll, afterAll } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, beforeAll, afterAll } from "bun:test"
 import * as Dispatcher from "../../src/altimate/native/dispatcher"
 
 // Disable telemetry via env var instead of mock.module
@@ -10,9 +10,10 @@ afterAll(() => { delete process.env.ALTIMATE_TELEMETRY_DISABLED })
 // ---------------------------------------------------------------------------
 
 import * as Registry from "../../src/altimate/native/connections/registry"
+import { detectAuthMethod } from "../../src/altimate/native/connections/registry"
 import * as CredentialStore from "../../src/altimate/native/connections/credential-store"
 import { parseDbtProfiles } from "../../src/altimate/native/connections/dbt-profiles"
-import { discoverContainers } from "../../src/altimate/native/connections/docker-discovery"
+import { discoverContainers, containerToConfig } from "../../src/altimate/native/connections/docker-discovery"
 import { registerAll } from "../../src/altimate/native/connections/register"
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,132 @@ describe("ConnectionRegistry", () => {
     Registry.setConfigs({ b: { type: "mysql" }, c: { type: "duckdb" } })
     expect(Registry.list().warehouses).toHaveLength(2)
     expect(Registry.getConfig("a")).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// loadFromEnv — env-var-based connection config loading
+// ---------------------------------------------------------------------------
+
+describe("loadFromEnv via Registry.load()", () => {
+  const saved: Record<string, string | undefined> = {}
+
+  function setEnv(key: string, value: string) {
+    saved[key] = process.env[key]
+    process.env[key] = value
+  }
+
+  beforeEach(() => {
+    Registry.reset()
+  })
+
+  afterEach(() => {
+    for (const [key, orig] of Object.entries(saved)) {
+      if (orig === undefined) delete process.env[key]
+      else process.env[key] = orig
+    }
+    for (const key of Object.keys(saved)) delete saved[key]
+  })
+
+  test("parses valid JSON from ALTIMATE_CODE_CONN_* env vars", () => {
+    setEnv("ALTIMATE_CODE_CONN_MYDB", JSON.stringify({ type: "postgres", host: "localhost", port: 5432 }))
+    Registry.load()
+    const config = Registry.getConfig("mydb")
+    expect(config).toBeDefined()
+    expect(config?.type).toBe("postgres")
+    expect(config?.host).toBe("localhost")
+  })
+
+  test("lowercases connection name from env var suffix", () => {
+    setEnv("ALTIMATE_CODE_CONN_PROD_DB", JSON.stringify({ type: "snowflake", account: "abc" }))
+    Registry.load()
+    expect(Registry.getConfig("prod_db")).toBeDefined()
+    expect(Registry.getConfig("PROD_DB")).toBeUndefined()
+  })
+
+  test("ignores env var with invalid JSON", () => {
+    setEnv("ALTIMATE_CODE_CONN_BAD", "not-valid-json{")
+    Registry.load()
+    expect(Registry.getConfig("bad")).toBeUndefined()
+  })
+
+  test("ignores env var config without type field", () => {
+    setEnv("ALTIMATE_CODE_CONN_NOTYPE", JSON.stringify({ host: "localhost", port: 5432 }))
+    Registry.load()
+    expect(Registry.getConfig("notype")).toBeUndefined()
+  })
+
+  test("ignores non-object JSON values (string, number, array)", () => {
+    setEnv("ALTIMATE_CODE_CONN_STR", JSON.stringify("just a string"))
+    setEnv("ALTIMATE_CODE_CONN_NUM", JSON.stringify(42))
+    setEnv("ALTIMATE_CODE_CONN_ARR", JSON.stringify([1, 2, 3]))
+    Registry.load()
+    expect(Registry.getConfig("str")).toBeUndefined()
+    expect(Registry.getConfig("num")).toBeUndefined()
+    expect(Registry.getConfig("arr")).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// detectAuthMethod
+// ---------------------------------------------------------------------------
+
+describe("detectAuthMethod", () => {
+  test("returns 'connection_string' for config with connection_string", () => {
+    expect(detectAuthMethod({ type: "postgres", connection_string: "postgresql://..." } as any)).toBe("connection_string")
+  })
+
+  test("returns 'key_pair' for Snowflake private_key_path", () => {
+    expect(detectAuthMethod({ type: "snowflake", private_key_path: "/path/to/key.p8" } as any)).toBe("key_pair")
+  })
+
+  test("returns 'key_pair' for camelCase privateKeyPath", () => {
+    expect(detectAuthMethod({ type: "snowflake", privateKeyPath: "/path/to/key.p8" } as any)).toBe("key_pair")
+  })
+
+  test("returns 'sso' for Snowflake externalbrowser", () => {
+    expect(detectAuthMethod({ type: "snowflake", authenticator: "EXTERNALBROWSER" } as any)).toBe("sso")
+  })
+
+  test("returns 'sso' for Okta URL authenticator", () => {
+    expect(detectAuthMethod({ type: "snowflake", authenticator: "https://myorg.okta.com" } as any)).toBe("sso")
+  })
+
+  test("returns 'oauth' for OAuth authenticator", () => {
+    expect(detectAuthMethod({ type: "snowflake", authenticator: "OAUTH" } as any)).toBe("oauth")
+  })
+
+  test("returns 'token' for access_token", () => {
+    expect(detectAuthMethod({ type: "databricks", access_token: "dapi..." } as any)).toBe("token")
+  })
+
+  test("returns 'password' for config with password", () => {
+    expect(detectAuthMethod({ type: "postgres", password: "secret" } as any)).toBe("password")
+  })
+
+  test("returns 'file' for duckdb", () => {
+    expect(detectAuthMethod({ type: "duckdb", path: "/data/my.db" } as any)).toBe("file")
+  })
+
+  test("returns 'file' for sqlite", () => {
+    expect(detectAuthMethod({ type: "sqlite", path: "/data/my.sqlite" } as any)).toBe("file")
+  })
+
+  test("returns 'connection_string' for mongodb without password", () => {
+    expect(detectAuthMethod({ type: "mongodb" } as any)).toBe("connection_string")
+  })
+
+  test("returns 'password' for mongo with password", () => {
+    expect(detectAuthMethod({ type: "mongo", password: "secret" } as any)).toBe("password")
+  })
+
+  test("returns 'unknown' for null/undefined", () => {
+    expect(detectAuthMethod(null)).toBe("unknown")
+    expect(detectAuthMethod(undefined)).toBe("unknown")
+  })
+
+  test("returns 'unknown' for empty config with no identifiable auth", () => {
+    expect(detectAuthMethod({ type: "postgres" } as any)).toBe("unknown")
   })
 })
 
@@ -134,6 +261,36 @@ describe("CredentialStore", () => {
     expect(sanitized.token).toBeUndefined()
     expect(sanitized.oauth_client_secret).toBeUndefined()
     expect(sanitized.authenticator).toBe("oauth")
+  })
+
+  test("saveConnection strips all sensitive fields from complex config", async () => {
+    const config = {
+      type: "snowflake",
+      account: "abc123",
+      user: "svc_user",
+      password: "pw123",
+      private_key: "-----BEGIN PRIVATE KEY-----",
+      private_key_passphrase: "passphrase",
+      token: "oauth-token",
+      oauth_client_secret: "client-secret",
+      ssh_password: "ssh-pw",
+      connection_string: "mongodb://...",
+    } as any
+    const { sanitized, warnings } = await CredentialStore.saveConnection("complex", config)
+
+    expect(sanitized.password).toBeUndefined()
+    expect(sanitized.private_key).toBeUndefined()
+    expect(sanitized.private_key_passphrase).toBeUndefined()
+    expect(sanitized.token).toBeUndefined()
+    expect(sanitized.oauth_client_secret).toBeUndefined()
+    expect(sanitized.ssh_password).toBeUndefined()
+    expect(sanitized.connection_string).toBeUndefined()
+
+    expect(sanitized.type).toBe("snowflake")
+    expect(sanitized.account).toBe("abc123")
+    expect(sanitized.user).toBe("svc_user")
+
+    expect(warnings).toHaveLength(7)
   })
 })
 
@@ -261,6 +418,122 @@ snow:
       fs.rmSync(tmpDir, { recursive: true })
     }
   })
+
+  // altimate_change start — tests for untested dbt profiles parser edge cases
+  test("resolves env_var with default fallback when env var is missing", async () => {
+    const fs = await import("fs")
+    const os = await import("os")
+    const path = await import("path")
+
+    delete process.env.__TEST_DBT_MISSING_VAR_12345
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dbt-test-"))
+    const profilesPath = path.join(tmpDir, "profiles.yml")
+
+    fs.writeFileSync(
+      profilesPath,
+      `
+myproject:
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('__TEST_DBT_MISSING_VAR_12345', 'localhost') }}"
+      port: 5432
+      user: "{{ env_var('__TEST_DBT_MISSING_USER_12345', 'default_user') }}"
+      password: secret
+      dbname: mydb
+`,
+    )
+
+    try {
+      const connections = await parseDbtProfiles(profilesPath)
+      expect(connections).toHaveLength(1)
+      expect(connections[0].config.host).toBe("localhost")
+      expect(connections[0].config.user).toBe("default_user")
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true })
+    }
+  })
+
+  test("skips 'config' top-level key (dbt global settings)", async () => {
+    const fs = await import("fs")
+    const os = await import("os")
+    const path = await import("path")
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dbt-test-"))
+    const profilesPath = path.join(tmpDir, "profiles.yml")
+
+    fs.writeFileSync(
+      profilesPath,
+      `
+config:
+  send_anonymous_usage_stats: false
+  use_colors: true
+
+real_project:
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      dbname: analytics
+`,
+    )
+
+    try {
+      const connections = await parseDbtProfiles(profilesPath)
+      expect(connections).toHaveLength(1)
+      expect(connections[0].name).toBe("real_project_dev")
+      expect(connections.find((c) => c.name.startsWith("config"))).toBeUndefined()
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true })
+    }
+  })
+
+  test("handles multiple profiles with multiple outputs", async () => {
+    const fs = await import("fs")
+    const os = await import("os")
+    const path = await import("path")
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dbt-test-"))
+    const profilesPath = path.join(tmpDir, "profiles.yml")
+
+    fs.writeFileSync(
+      profilesPath,
+      `
+warehouse_a:
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      dbname: dev_db
+    prod:
+      type: postgres
+      host: prod.example.com
+      dbname: prod_db
+
+warehouse_b:
+  outputs:
+    staging:
+      type: snowflake
+      account: abc123
+      user: admin
+      password: pw
+      database: STAGING
+      warehouse: COMPUTE_WH
+      schema: PUBLIC
+`,
+    )
+
+    try {
+      const connections = await parseDbtProfiles(profilesPath)
+      expect(connections).toHaveLength(3)
+      const names = connections.map((c) => c.name).sort()
+      expect(names).toEqual(["warehouse_a_dev", "warehouse_a_prod", "warehouse_b_staging"])
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true })
+    }
+  })
+  // altimate_change end
 })
 
 // ---------------------------------------------------------------------------
@@ -271,6 +544,28 @@ describe("Docker discovery", () => {
   test("returns empty array when dockerode not installed", async () => {
     const containers = await discoverContainers()
     expect(containers).toEqual([])
+  })
+
+  test("containerToConfig omits undefined optional fields", () => {
+    const container = {
+      container_id: "def456",
+      name: "mysql_dev",
+      image: "mysql:8",
+      db_type: "mysql",
+      host: "127.0.0.1",
+      port: 3306,
+      user: undefined as string | undefined,
+      password: undefined as string | undefined,
+      database: undefined as string | undefined,
+      status: "running",
+    }
+    const config = containerToConfig(container as any)
+    expect(config.type).toBe("mysql")
+    expect(config.host).toBe("127.0.0.1")
+    expect(config.port).toBe(3306)
+    expect(config.user).toBeUndefined()
+    expect(config.password).toBeUndefined()
+    expect(config.database).toBeUndefined()
   })
 })
 
