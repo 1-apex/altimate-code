@@ -18,15 +18,15 @@ services:
       - TEST_REDSHIFT_HOST=redshift
       - TEST_REDSHIFT_PORT=5432
       - TEST_REDSHIFT_PASSWORD=testpass123
+      - TEST_MONGODB_HOST=mongodb
+      - TEST_MONGODB_PORT=27017
     depends_on:
       postgres:
         condition: service_healthy
-      mysql:
+      mongodb:
         condition: service_healthy
-      mssql:
-        condition: service_healthy
-      redshift:
-        condition: service_healthy
+      # mysql, mssql, redshift are for driver E2E tests (ci-local.sh --full),
+      # not the sanity shell scripts. Don't block sanity on them.
 
   postgres:
     image: postgres:16-alpine
@@ -72,5 +72,14 @@ services:
       - "15439:5432"
     healthcheck:
       test: pg_isready
+      interval: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "17017:27017"
+    healthcheck:
+      test: mongosh --eval "db.adminCommand('ping')" --quiet
       interval: 5s
       retries: 10

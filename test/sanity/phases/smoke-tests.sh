@@ -79,12 +79,19 @@ test_duckdb() {
 }
 
 test_postgres() {
-  if [ -z "${TEST_PG_HOST:-}" ]; then
-    echo "SKIP" > "$RESULTS_DIR/postgres"
-    return
+  # Use env vars if set (Docker compose), else probe local Docker port
+  local pg_host="${TEST_PG_HOST:-}"
+  local pg_port="${TEST_PG_PORT:-5432}"
+  if [ -z "$pg_host" ]; then
+    if timeout 2 bash -c "echo >/dev/tcp/127.0.0.1/15432" 2>/dev/null; then
+      pg_host="127.0.0.1"; pg_port="15432"
+    else
+      echo "SKIP" > "$RESULTS_DIR/postgres"
+      return
+    fi
   fi
   cd "$WORKDIR" || return 1
-  altimate_run "postgres" "run SELECT 1 against postgres at ${TEST_PG_HOST}:${TEST_PG_PORT:-5432}"
+  altimate_run "postgres" "run SELECT 1 against postgres at ${pg_host}:${pg_port}"
   local output=$(get_output "postgres")
   if echo "$output" | grep -qi "TIMEOUT\|unhandled"; then
     echo "FAIL" > "$RESULTS_DIR/postgres"
@@ -94,9 +101,19 @@ test_postgres() {
 }
 
 test_snowflake() {
+  # Snowflake requires real cloud credentials — cannot be Docker'd.
+  # Accepts either ALTIMATE_CODE_CONN_SNOWFLAKE_TEST (JSON config) or
+  # individual SNOWFLAKE_ACCOUNT/USER/PASSWORD env vars.
   if [ -z "${ALTIMATE_CODE_CONN_SNOWFLAKE_TEST:-}" ]; then
-    echo "SKIP" > "$RESULTS_DIR/snowflake"
-    return
+    if [ -n "${SNOWFLAKE_ACCOUNT:-}" ] && [ -n "${SNOWFLAKE_USER:-}" ] && [ -n "${SNOWFLAKE_PASSWORD:-}" ]; then
+      export ALTIMATE_CODE_CONN_SNOWFLAKE_TEST=$(cat <<SFEOF
+{"type":"snowflake","account":"${SNOWFLAKE_ACCOUNT}","user":"${SNOWFLAKE_USER}","password":"${SNOWFLAKE_PASSWORD}","warehouse":"${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}","role":"${SNOWFLAKE_ROLE:-PUBLIC}"}
+SFEOF
+      )
+    else
+      echo "SKIP" > "$RESULTS_DIR/snowflake"
+      return
+    fi
   fi
   cd "$WORKDIR" || return 1
   altimate_run "snowflake" "run SELECT 1 against snowflake"
@@ -105,6 +122,28 @@ test_snowflake() {
     echo "FAIL" > "$RESULTS_DIR/snowflake"
   else
     echo "PASS" > "$RESULTS_DIR/snowflake"
+  fi
+}
+
+test_mongodb() {
+  # Use env vars if set (Docker compose), else probe local Docker port
+  local mongo_host="${TEST_MONGODB_HOST:-}"
+  local mongo_port="${TEST_MONGODB_PORT:-27017}"
+  if [ -z "$mongo_host" ]; then
+    if timeout 2 bash -c "echo >/dev/tcp/127.0.0.1/17017" 2>/dev/null; then
+      mongo_host="127.0.0.1"; mongo_port="17017"
+    else
+      echo "SKIP" > "$RESULTS_DIR/mongodb"
+      return
+    fi
+  fi
+  cd "$WORKDIR" || return 1
+  altimate_run "mongodb" "run a find command on the admin database against mongodb at ${mongo_host}:${mongo_port}"
+  local output=$(get_output "mongodb")
+  if echo "$output" | grep -qi "TIMEOUT\|unhandled\|driver not installed"; then
+    echo "FAIL" > "$RESULTS_DIR/mongodb"
+  else
+    echo "PASS" > "$RESULTS_DIR/mongodb"
   fi
 }
 
@@ -152,6 +191,47 @@ test_discover() {
   fi
 }
 
+test_dbt_discover() {
+  # Use isolated workdir to avoid race conditions with parallel tests (#448, #270)
+  local dbt_dir=$(mktemp -d /tmp/sanity-dbt-XXXXXX)
+  cd "$dbt_dir"
+  git init -q
+  git config user.name "sanity-test"
+  git config user.email "sanity@test.local"
+  echo '{}' > package.json
+  mkdir -p models
+  cat > dbt_project.yml <<'DBTEOF'
+name: sanity_test
+version: '1.0.0'
+config-version: 2
+profile: sanity_test
+DBTEOF
+  cat > models/test_model.sql <<'SQLEOF'
+SELECT 1 AS id
+SQLEOF
+  git add -A && git commit -q -m "add dbt project"
+  SANITY_TIMEOUT=90 altimate_run_with_turns "dbt-discover" 2 "discover dbt project config in this repo" || true
+  local output=$(get_output "dbt-discover")
+  if echo "$output" | grep -qi "unhandled\|TypeError\|Cannot read"; then
+    echo "FAIL" > "$RESULTS_DIR/dbt-discover"
+  else
+    echo "PASS" > "$RESULTS_DIR/dbt-discover"
+  fi
+  rm -rf "$dbt_dir"
+}
+
+test_check_command() {
+  cd "$WORKDIR"
+  # altimate-code check should run deterministic SQL checks without LLM (#453)
+  echo "SELECT * FROM users WHERE 1=1;" > check_target.sql
+  local output=$(timeout 30 altimate check check_target.sql 2>&1 || true)
+  if echo "$output" | grep -qi "TypeError\|unhandled\|Cannot read properties"; then
+    echo "FAIL" > "$RESULTS_DIR/check-cmd"
+  else
+    echo "PASS" > "$RESULTS_DIR/check-cmd"
+  fi
+}
+
 # Run tests in parallel batches
 echo ""
 echo "  Running $MAX_PARALLEL tests concurrently..."
@@ -164,10 +244,13 @@ TESTS=(
   "test_duckdb"
   "test_postgres"
   "test_snowflake"
+  "test_mongodb"
   "test_builder"
   "test_analyst"
   "test_bad_command"
   "test_discover"
+  "test_dbt_discover"
+  "test_check_command"
 )
 
 TEST_NAMES=(
@@ -177,10 +260,13 @@ TEST_NAMES=(
   "duckdb"
   "postgres"
   "snowflake"
+  "mongodb"
   "builder"
   "analyst"
   "bad-cmd"
   "discover"
+  "dbt-discover"
+  "check-cmd"
 )
 
 # Launch in batches of MAX_PARALLEL

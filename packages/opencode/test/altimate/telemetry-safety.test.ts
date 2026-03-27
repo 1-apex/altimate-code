@@ -59,6 +59,11 @@ describe("Telemetry Safety: Helper functions never throw", () => {
     expect(detectAuthMethod({ type: "duckdb" })).toBe("file")
     expect(detectAuthMethod({ type: "sqlite" })).toBe("file")
     expect(detectAuthMethod({ type: "postgres" })).toBe("unknown")
+    // MongoDB auth detection
+    expect(detectAuthMethod({ type: "mongodb", connection_string: "mongodb://localhost" })).toBe("connection_string")
+    expect(detectAuthMethod({ type: "mongodb", password: "secret" })).toBe("password")
+    expect(detectAuthMethod({ type: "mongodb" })).toBe("connection_string")
+    expect(detectAuthMethod({ type: "mongo" })).toBe("connection_string")
     // Edge cases
     expect(detectAuthMethod({} as any)).toBe("unknown")
     expect(detectAuthMethod({ type: "" })).toBe("unknown")

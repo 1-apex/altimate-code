@@ -24,7 +24,12 @@ COPY --chown=testuser packages/opencode/script/postinstall.mjs /home/testuser/.a
 COPY --chown=testuser packages/opencode/package.json /home/testuser/.altimate-install/package.json
 COPY --chown=testuser .opencode/skills/ /home/testuser/.altimate-install/skills/
 
-# Install altimate-core native binding (required at runtime)
+# Install altimate-core native binding (required at runtime).
+# NOTE: Database drivers (pg, snowflake-sdk, mysql2, etc.) are NOT installed here
+# because a real `npm install -g altimate-code` doesn't install them either —
+# they're optionalDependencies in the workspace @altimateai/drivers package which
+# is never published. This is issue #295. Driver resolvability tests are expected
+# to FAIL here, proving the bug exists for real users.
 RUN cd /home/testuser/.altimate-install && \
     echo '{"dependencies":{"@altimateai/altimate-core":"latest"}}' > package.json && \
     bun install && \

@@ -75,6 +75,26 @@ if echo "$changed" | grep -q "migration/"; then
   emit_test "upgrade-needed" "$SCRIPT_DIR/phases/verify-upgrade.sh"
 fi
 
+# permission/yolo changed → run deny enforcement test
+if echo "$changed" | grep -qE "permission|yolo|flag"; then
+  emit_test "yolo-deny" "$SCRIPT_DIR/phases/resilience.sh"
+fi
+
+# branding/welcome/help changed → check for opencode leaks
+if echo "$changed" | grep -qE "welcome|help|hints|cli/|cmd/tui"; then
+  emit_test "branding-check" "$SCRIPT_DIR/phases/verify-install.sh"
+fi
+
+# dbt tools changed → test dbt discovery
+if echo "$changed" | grep -qE "dbt|altimate-dbt|profiles"; then
+  emit_test "dbt-discover" "altimate run --max-turns 2 --yolo 'discover dbt project config'"
+fi
+
+# driver changed → verify all drivers resolvable
+if echo "$changed" | grep -qE "drivers/|driver"; then
+  emit_test "driver-resolvability" "$SCRIPT_DIR/phases/verify-install.sh"
+fi
+
 COUNT=$(wc -l < "$MANIFEST")
 echo ""
 echo "  Generated $COUNT PR-specific test(s)"

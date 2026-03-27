@@ -23,7 +23,7 @@ echo '{}' > package.json
 git add -A && git commit -q -m "init"
 
 # 1. SQLite DB created after first run
-echo "  [1/7] SQLite DB creation..."
+echo "  [1/10] SQLite DB creation..."
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   altimate_run "db-create" "say hello" || true
   # Find the DB — could be opencode.db, opencode-latest.db, or opencode-{channel}.db
@@ -42,7 +42,7 @@ else
 fi
 
 # 2. WAL mode enabled
-echo "  [2/7] WAL mode..."
+echo "  [2/10] WAL mode..."
 if [ -n "$DB_PATH" ] && [ -f "$DB_PATH" ] && command -v sqlite3 >/dev/null 2>&1; then
   WAL_MODE=$(sqlite3 "$DB_PATH" "PRAGMA journal_mode;" 2>/dev/null || echo "unknown")
   assert_eq "$WAL_MODE" "wal" "WAL mode enabled"
@@ -51,7 +51,7 @@ else
 fi
 
 # 3. Session persisted
-echo "  [3/7] Session persistence..."
+echo "  [3/10] Session persistence..."
 if [ -n "$DB_PATH" ] && [ -f "$DB_PATH" ] && command -v sqlite3 >/dev/null 2>&1; then
   SESSION_COUNT=$(sqlite3 "$DB_PATH" "SELECT count(*) FROM session;" 2>/dev/null || echo "0")
   assert_ge "$SESSION_COUNT" 1 "session persisted (got $SESSION_COUNT)"
@@ -60,7 +60,7 @@ else
 fi
 
 # 4. Session continue (DB survives restart)
-echo "  [4/7] Session continue..."
+echo "  [4/10] Session continue..."
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   altimate_run "continue" --continue "what was my last message" || true
   assert_not_contains "$(get_output continue)" "TIMEOUT" "session continue works"
@@ -69,7 +69,7 @@ else
 fi
 
 # 5. Compaction doesn't crash (best-effort — seed if fixture available)
-echo "  [5/7] Compaction resilience..."
+echo "  [5/10] Compaction resilience..."
 if [ -n "$DB_PATH" ] && [ -f "$SCRIPT_DIR/fixtures/compaction-session.sql" ] && command -v sqlite3 >/dev/null 2>&1; then
   sqlite3 "$DB_PATH" < "$SCRIPT_DIR/fixtures/compaction-session.sql" 2>/dev/null || true
   if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
@@ -90,20 +90,8 @@ else
   skip_test "Compaction resilience" "fixture or sqlite3 not available"
 fi
 
-# 6. Graceful on missing provider key
-echo "  [6/7] Missing API key handling..."
-SAVED_KEY="${ANTHROPIC_API_KEY:-}"
-unset ANTHROPIC_API_KEY
-OUTPUT=$(timeout 10 altimate run --max-turns 1 --yolo "hello" 2>&1 || true)
-# Should get a clean error, not an unhandled exception / stack trace
-assert_not_contains "$OUTPUT" "TypeError" "no TypeError on missing key"
-assert_not_contains "$OUTPUT" "Cannot read properties" "no unhandled error on missing key"
-if [ -n "$SAVED_KEY" ]; then
-  export ANTHROPIC_API_KEY="$SAVED_KEY"
-fi
-
-# 7. Config backwards compatibility
-echo "  [7/7] Config backwards compat..."
+# 6. Config backwards compatibility
+echo "  [6/10] Config backwards compat..."
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/altimate-code"
 mkdir -p "$CONFIG_DIR"
 if [ -f "$SCRIPT_DIR/fixtures/old-config.json" ]; then
@@ -119,8 +107,8 @@ else
   skip_test "Config backwards compat" "old-config.json fixture not found"
 fi
 
-# 8. Broken config graceful handling
-echo "  [8/8] Broken config handling..."
+# 7. Broken config graceful handling
+echo "  [7/10] Broken config handling..."
 if [ -f "$SCRIPT_DIR/fixtures/broken-config.json" ]; then
   cp "$SCRIPT_DIR/fixtures/broken-config.json" "$CONFIG_DIR/opencode.json"
   if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
@@ -133,6 +121,87 @@ if [ -f "$SCRIPT_DIR/fixtures/broken-config.json" ]; then
   rm -f "$CONFIG_DIR/opencode.json"
 else
   skip_test "Broken config handling" "broken-config.json fixture not found"
+fi
+
+# 8. Yolo deny enforcement — deny rules block even with --yolo (#372, #377)
+echo "  [8/10] Yolo deny enforcement..."
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  # Create a config with an explicit deny rule
+  # App reads from $XDG_CONFIG_HOME/altimate-code/opencode.jsonc
+  DENY_CONFIG_DIR=$(mktemp -d /tmp/sanity-deny-config-XXXXXX)
+  DENY_MARKER="$DENY_CONFIG_DIR/deny-marker"
+  mkdir -p "$DENY_CONFIG_DIR/altimate-code"
+  cat > "$DENY_CONFIG_DIR/altimate-code/opencode.jsonc" <<DENYEOF
+{
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "touch ${DENY_MARKER}": "deny",
+      "touch /tmp/sanity-deny-*": "deny"
+    }
+  }
+}
+DENYEOF
+  # Use an observable side-effect: deny "touch" on a marker file.
+  # If deny enforcement works, the marker file will NOT be created.
+  DENY_OUTPUT=$(XDG_CONFIG_HOME="$DENY_CONFIG_DIR" timeout 30 altimate run --max-turns 2 --yolo --format json \
+    "run this exact bash command: touch $DENY_MARKER" 2>&1 || true)
+  # Primary check: the marker file must not exist (deny blocked execution)
+  if [ -f "$DENY_MARKER" ]; then
+    echo "  FAIL: yolo mode bypassed deny rule — denied command was executed"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  elif echo "$DENY_OUTPUT" | grep -qi "denied\|blocked\|BLOCKED by deny rule\|not allowed"; then
+    echo "  PASS: yolo deny rule explicitly blocked command"
+    PASS_COUNT=$((PASS_COUNT + 1))
+  elif [ -z "$DENY_OUTPUT" ]; then
+    echo "  FAIL: no output from deny enforcement test"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  else
+    # Model may have refused on its own — marker absent so still safe
+    echo "  PASS: yolo deny rule (command not executed, marker absent)"
+    PASS_COUNT=$((PASS_COUNT + 1))
+  fi
+  rm -rf "$DENY_CONFIG_DIR"
+else
+  skip_test "Yolo deny enforcement" "no ANTHROPIC_API_KEY"
+fi
+
+# 9. Missing API key handling (no unhandled exceptions)
+echo "  [9/10] Missing API key handling..."
+SAVED_KEY="${ANTHROPIC_API_KEY:-}"
+unset ANTHROPIC_API_KEY
+OUTPUT=$(timeout 10 altimate run --max-turns 1 --yolo "hello" 2>&1 || true)
+assert_not_contains "$OUTPUT" "TypeError" "no TypeError on missing key"
+assert_not_contains "$OUTPUT" "Cannot read properties" "no unhandled error on missing key"
+if [ -n "$SAVED_KEY" ]; then
+  export ANTHROPIC_API_KEY="$SAVED_KEY"
+fi
+
+# 10. No internet — graceful error, not blank screen (#181)
+echo "  [10/10] No internet graceful handling..."
+# Block all outbound HTTPS via multiple methods for reliability:
+# - Set both lowercase and uppercase proxy vars to unreachable TEST-NET-1
+# - Clear NO_PROXY to prevent bypass
+# - Use unshare --net if available (network namespace isolation — most reliable)
+# Try unshare --net first (Linux with privileges), fall back to proxy blocking
+if command -v unshare >/dev/null 2>&1 && unshare --net true 2>/dev/null; then
+  NO_NET_OUTPUT=$(timeout 15 unshare --net altimate run --max-turns 1 --yolo "hello" 2>&1 || true)
+else
+  NO_NET_OUTPUT=$(timeout 15 env \
+    https_proxy=http://192.0.2.1:1 http_proxy=http://192.0.2.1:1 \
+    HTTPS_PROXY=http://192.0.2.1:1 HTTP_PROXY=http://192.0.2.1:1 \
+    ALL_PROXY=http://192.0.2.1:1 NO_PROXY="" \
+    altimate run --max-turns 1 --yolo "hello" 2>&1 || true)
+fi
+assert_not_contains "$NO_NET_OUTPUT" "TypeError" "no TypeError without internet"
+assert_not_contains "$NO_NET_OUTPUT" "Cannot read properties" "no unhandled error without internet"
+# Should get some kind of connection/auth error, not a blank hang
+if [ -z "$NO_NET_OUTPUT" ]; then
+  echo "  FAIL: no output at all without internet (blank screen)"
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+else
+  echo "  PASS: produced output without internet ($(echo "$NO_NET_OUTPUT" | wc -l) lines)"
+  PASS_COUNT=$((PASS_COUNT + 1))
 fi
 
 # Cleanup

@@ -12,7 +12,7 @@ afterAll(() => { delete process.env.ALTIMATE_TELEMETRY_DISABLED })
 import * as Registry from "../../src/altimate/native/connections/registry"
 import { detectAuthMethod } from "../../src/altimate/native/connections/registry"
 import * as CredentialStore from "../../src/altimate/native/connections/credential-store"
-import { parseDbtProfiles } from "../../src/altimate/native/connections/dbt-profiles"
+import { parseDbtProfiles, dbtConnectionsToConfigs } from "../../src/altimate/native/connections/dbt-profiles"
 import { discoverContainers, containerToConfig } from "../../src/altimate/native/connections/docker-discovery"
 import { registerAll } from "../../src/altimate/native/connections/register"
 
@@ -534,6 +534,91 @@ warehouse_b:
     }
   })
   // altimate_change end
+
+  test("spark adapter maps to databricks", async () => {
+    const fs = await import("fs")
+    const os = await import("os")
+    const path = await import("path")
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dbt-test-"))
+    const profilesPath = path.join(tmpDir, "profiles.yml")
+
+    fs.writeFileSync(
+      profilesPath,
+      `
+spark_project:
+  outputs:
+    prod:
+      type: spark
+      server_hostname: my-spark-cluster.databricks.com
+      http_path: /sql/1.0/warehouses/abc123
+      token: dapi_secret
+`,
+    )
+
+    try {
+      const connections = await parseDbtProfiles(profilesPath)
+      expect(connections).toHaveLength(1)
+      expect(connections[0].type).toBe("databricks")
+      expect(connections[0].config.type).toBe("databricks")
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true })
+    }
+  })
+
+  test("trino adapter maps to postgres (wire-compatible)", async () => {
+    const fs = await import("fs")
+    const os = await import("os")
+    const path = await import("path")
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dbt-test-"))
+    const profilesPath = path.join(tmpDir, "profiles.yml")
+
+    fs.writeFileSync(
+      profilesPath,
+      `
+trino_project:
+  outputs:
+    prod:
+      type: trino
+      host: trino.example.com
+      port: 8080
+      user: analyst
+      dbname: hive
+`,
+    )
+
+    try {
+      const connections = await parseDbtProfiles(profilesPath)
+      expect(connections).toHaveLength(1)
+      expect(connections[0].type).toBe("postgres")
+      expect(connections[0].config.type).toBe("postgres")
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true })
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dbtConnectionsToConfigs
+// ---------------------------------------------------------------------------
+
+describe("dbtConnectionsToConfigs", () => {
+  test("converts connection array to keyed record", () => {
+    const connections = [
+      { name: "pg_dev", type: "postgres", config: { type: "postgres", host: "localhost" } },
+      { name: "sf_prod", type: "snowflake", config: { type: "snowflake", account: "abc" } },
+    ]
+    const result = dbtConnectionsToConfigs(connections)
+    expect(Object.keys(result)).toHaveLength(2)
+    expect(result["pg_dev"].type).toBe("postgres")
+    expect(result["sf_prod"].type).toBe("snowflake")
+  })
+
+  test("returns empty object for empty array", () => {
+    const result = dbtConnectionsToConfigs([])
+    expect(result).toEqual({})
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -544,6 +629,28 @@ describe("Docker discovery", () => {
   test("returns empty array when dockerode not installed", async () => {
     const containers = await discoverContainers()
     expect(containers).toEqual([])
+  })
+
+  test("containerToConfig creates config with all fields from a fully-populated container", () => {
+    const container = {
+      container_id: "abc123def456",
+      name: "my-postgres",
+      image: "postgres:16",
+      db_type: "postgres",
+      host: "127.0.0.1",
+      port: 5432,
+      user: "admin",
+      password: "secret",
+      database: "mydb",
+      status: "running",
+    }
+    const config = containerToConfig(container as any)
+    expect(config.type).toBe("postgres")
+    expect(config.host).toBe("127.0.0.1")
+    expect(config.port).toBe(5432)
+    expect(config.user).toBe("admin")
+    expect(config.password).toBe("secret")
+    expect(config.database).toBe("mydb")
   })
 
   test("containerToConfig omits undefined optional fields", () => {

@@ -56,25 +56,25 @@ if [ "$MODE" = "--full" ] || [ "$MODE" = "full" ]; then
   echo "=== Full CI (Docker) ==="
 
   # Driver E2E with Docker containers
-  run_step "Docker Services Up" docker compose -f "$REPO_ROOT/test/sanity/docker-compose.yml" up -d postgres mysql mssql redshift
+  run_step "Docker Services Up" docker compose -f "$REPO_ROOT/test/sanity/docker-compose.yml" up -d postgres mysql mssql redshift mongodb
 
   echo "  Waiting for services to be healthy..."
   HEALTHY=0
   for _wait in $(seq 1 30); do
     HEALTHY=$(docker compose -f "$REPO_ROOT/test/sanity/docker-compose.yml" ps --format json 2>/dev/null | grep -c '"healthy"' || echo "0")
-    if [ "$HEALTHY" -ge 4 ]; then break; fi
+    if [ "$HEALTHY" -ge 5 ]; then break; fi
     sleep 2
   done
 
-  if [ "$HEALTHY" -lt 4 ]; then
-    echo "  >>> Docker Services: FAILED ($HEALTHY/4 healthy after 60s)"
+  if [ "$HEALTHY" -lt 5 ]; then
+    echo "  >>> Docker Services: FAILED ($HEALTHY/5 healthy after 60s)"
     EXIT_CODE=1
   else
-    echo "  >>> Docker Services: $HEALTHY/4 healthy"
+    echo "  >>> Docker Services: $HEALTHY/5 healthy"
   fi
 
   # Skip driver tests if services aren't healthy
-  if [ "$HEALTHY" -lt 4 ]; then
+  if [ "$HEALTHY" -lt 5 ]; then
     echo "  SKIP: Driver E2E tests (services not healthy)"
   else
 
@@ -87,6 +87,10 @@ if [ "$MODE" = "--full" ] || [ "$MODE" = "full" ]; then
     TEST_MSSQL_HOST=127.0.0.1 TEST_MSSQL_PORT=11433 TEST_MSSQL_PASSWORD='TestPass123!' \
     TEST_REDSHIFT_HOST=127.0.0.1 TEST_REDSHIFT_PORT=15439 TEST_REDSHIFT_PASSWORD=testpass123 \
     bun test test/altimate/drivers-docker-e2e.test.ts --timeout 30000"
+
+  run_step "Driver E2E (mongodb)" bash -c "cd $REPO_ROOT/packages/opencode && \
+    TEST_MONGODB_HOST=127.0.0.1 TEST_MONGODB_PORT=17017 \
+    bun test test/altimate/drivers-mongodb-e2e.test.ts --timeout 30000"
 
   # Full sanity suite in Docker
   run_step "Sanity Suite (Docker)" docker compose -f "$REPO_ROOT/test/sanity/docker-compose.yml" \
