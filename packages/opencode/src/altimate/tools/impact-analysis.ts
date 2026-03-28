@@ -70,8 +70,15 @@ export const ImpactAnalysisTool = Tool.define("impact_analysis", {
       const direct = downstream.filter((d) => d.depth === 1)
       const transitive = downstream.filter((d) => d.depth > 1)
 
-      // Step 4: Report test count (manifest has test_count but not individual tests)
-      const affectedTestCount = manifest.test_count ?? 0
+      // Step 4: Count only tests that reference the target model or its downstream models
+      const affectedModelIds = new Set([
+        targetModel.unique_id,
+        ...downstream.map((d) => modelsByName.get(d.name)?.unique_id).filter(Boolean),
+      ])
+      const affectedTests = (manifest.tests ?? []).filter((t) =>
+        t.depends_on?.some((dep) => affectedModelIds.has(dep)),
+      )
+      const affectedTestCount = affectedTests.length
 
       // Step 5: If column specified, attempt column-level lineage
       let columnImpact: string[] = []
@@ -253,9 +260,13 @@ export function formatImpactReport(data: {
 
   // Affected tests
   if (data.affectedTestCount > 0) {
-    lines.push(`Tests in project: ${data.affectedTestCount}`)
+    lines.push(`Affected tests: ${data.affectedTestCount}`)
     lines.push("".padEnd(40, "-"))
-    lines.push(`  Run \`dbt test\` to verify all ${data.affectedTestCount} tests still pass after this change.`)
+    lines.push(
+      data.affectedTestCount === 1
+        ? "  Run `dbt test` to verify this test still passes after this change."
+        : `  Run \`dbt test\` to verify these ${data.affectedTestCount} tests still pass after this change.`,
+    )
     lines.push("")
   }
 

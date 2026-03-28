@@ -43,13 +43,10 @@ describe("Locale.duration", () => {
     expect(Locale.duration(5400000)).toBe("1h 30m")
   })
 
-  // BUG: Locale.duration >=24h has swapped days/hours calculation.
-  // hours = Math.floor(input / 3600000) gives total hours (25), not remainder.
-  // days = Math.floor((input % 3600000) / 86400000) always yields 0.
-  // Correct: days = Math.floor(input / 86400000), hours = Math.floor((input % 86400000) / 3600000)
-  // 90000000ms = 25h = 1d 1h — should display "1d 1h"
+  // Fixed in this PR: days and hours were swapped for >=24h durations.
+  // 90000000ms = 25h = 1d 1h
   // See: https://github.com/AltimateAI/altimate-code/issues/368
-  test.skip("FIXME: days and hours for >=24h are calculated correctly", () => {
+  test("days and hours for >=24h are calculated correctly", () => {
     expect(Locale.duration(90000000)).toBe("1d 1h")
   })
 })

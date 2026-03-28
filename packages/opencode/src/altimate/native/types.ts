@@ -188,9 +188,16 @@ export interface DbtSourceInfo {
   columns: ModelColumn[]
 }
 
+export interface DbtTestInfo {
+  unique_id: string
+  name: string
+  depends_on: string[]
+}
+
 export interface DbtManifestResult {
   models: DbtModelInfo[]
   sources: DbtSourceInfo[]
+  tests: DbtTestInfo[]
   source_count: number
   model_count: number
   test_count: number

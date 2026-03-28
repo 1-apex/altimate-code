@@ -151,7 +151,7 @@ describe("formatImpactReport", () => {
     })
     expect(report).toContain("WARNING: Rename requires updating all downstream references.")
     expect(report).toContain("Update all downstream SQL references to new name")
-    expect(report).toContain("Tests in project: 5")
+    expect(report).toContain("Affected tests: 5")
   })
 
   test("column-level impact shows affected columns", () => {

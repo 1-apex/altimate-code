@@ -10,6 +10,7 @@ import type {
   DbtManifestResult,
   DbtModelInfo,
   DbtSourceInfo,
+  DbtTestInfo,
   ModelColumn,
 } from "../types"
 
@@ -30,6 +31,7 @@ export async function parseManifest(params: DbtManifestParams): Promise<DbtManif
   const emptyResult: DbtManifestResult = {
     models: [],
     sources: [],
+    tests: [],
     source_count: 0,
     model_count: 0,
     test_count: 0,
@@ -67,6 +69,7 @@ export async function parseManifest(params: DbtManifestParams): Promise<DbtManif
   const sourcesDict = manifest.sources || {}
 
   const models: DbtModelInfo[] = []
+  const tests: DbtTestInfo[] = []
   let testCount = 0
   let snapshotCount = 0
   let seedCount = 0
@@ -88,6 +91,11 @@ export async function parseManifest(params: DbtManifestParams): Promise<DbtManif
       })
     } else if (resourceType === "test") {
       testCount++
+      tests.push({
+        unique_id: nodeId,
+        name: node.name || "",
+        depends_on: node.depends_on?.nodes || [],
+      })
     } else if (resourceType === "snapshot") {
       snapshotCount++
     } else if (resourceType === "seed") {
@@ -111,6 +119,7 @@ export async function parseManifest(params: DbtManifestParams): Promise<DbtManif
   return {
     models,
     sources,
+    tests,
     source_count: sources.length,
     model_count: models.length,
     test_count: testCount,

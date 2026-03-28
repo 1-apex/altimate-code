@@ -17,13 +17,14 @@ export function register(method: BridgeMethod, handler: NativeHandler): void {
   nativeHandlers.set(method, handler)
 }
 
-/** Clear all registered handlers (for test isolation). */
-export function reset(): void {
-  nativeHandlers.clear()
-}
-
 /** Lazy registration hook — set by native/index.ts */
 let _ensureRegistered: (() => Promise<void>) | null = null
+
+/** Clear all registered handlers and lazy registration hook (for test isolation). */
+export function reset(): void {
+  nativeHandlers.clear()
+  _ensureRegistered = null
+}
 
 /** Called by native/index.ts to set the lazy registration function. */
 export function setRegistrationHook(fn: () => Promise<void>): void {
