@@ -107,4 +107,37 @@ describe("Fingerprint.detect: file-based project detection", () => {
     expect(result.tags).toContain("dbt")
     expect(result.tags).toContain("sql")
   })
+
+  test("detects dbt-packages from dbt_packages.yml", async () => {
+    await using tmp = await tmpdir()
+    await fs.writeFile(path.join(tmp.path, "dbt_packages.yml"), "packages:\n  - package: dbt-labs/dbt_utils\n")
+    const result = await Fingerprint.detect(tmp.path)
+    expect(result.tags).toContain("dbt-packages")
+  })
+
+  test("combined project detects multiple technologies", async () => {
+    await using tmp = await tmpdir()
+    await fs.writeFile(path.join(tmp.path, "dbt_project.yml"), "name: test\n")
+    await fs.writeFile(path.join(tmp.path, "airflow.cfg"), "[core]\n")
+    await fs.writeFile(path.join(tmp.path, "databricks.yml"), "bundle:\n  name: test\n")
+    const result = await Fingerprint.detect(tmp.path)
+    expect(result.tags).toContain("dbt")
+    expect(result.tags).toContain("airflow")
+    expect(result.tags).toContain("databricks")
+    expect(result.tags).toContain("data-engineering")
+  })
+})
+
+describe("Fingerprint.refresh", () => {
+  test("invalidates cache and re-detects new files", async () => {
+    await using tmp = await tmpdir()
+    // Initial detect — no tags
+    const r1 = await Fingerprint.detect(tmp.path)
+    expect(r1.tags).toEqual([])
+    // Add dbt_project.yml after initial detect
+    await fs.writeFile(path.join(tmp.path, "dbt_project.yml"), "name: test\n")
+    // refresh() should invalidate cache and pick up the new file
+    const r3 = await Fingerprint.refresh()
+    expect(r3.tags).toContain("dbt")
+  })
 })

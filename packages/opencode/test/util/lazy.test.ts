@@ -34,6 +34,49 @@ describe("util.lazy", () => {
     expect(result1).toBe(result2)
   })
 
+  // altimate_change start — test reset() and error-retry behavior
+  test("reset() clears cached value and re-invokes factory", () => {
+    let count = 0
+    const getValue = lazy(() => ++count)
+
+    expect(getValue()).toBe(1)
+    expect(getValue()).toBe(1) // cached
+
+    getValue.reset()
+
+    expect(getValue()).toBe(2) // re-invoked
+    expect(getValue()).toBe(2) // cached again
+  })
+
+  test("factory error is not cached — retries on next call", () => {
+    let shouldFail = true
+    const getValue = lazy(() => {
+      if (shouldFail) throw new Error("transient failure")
+      return "success"
+    })
+
+    expect(() => getValue()).toThrow("transient failure")
+
+    shouldFail = false
+    expect(getValue()).toBe("success") // retries and succeeds
+    expect(getValue()).toBe("success") // now cached
+  })
+
+  test("reset() after error allows fresh initialization", () => {
+    let attempt = 0
+    const getValue = lazy(() => {
+      attempt++
+      if (attempt === 1) throw new Error("first call fails")
+      return `attempt-${attempt}`
+    })
+
+    expect(() => getValue()).toThrow("first call fails")
+
+    getValue.reset()
+    expect(getValue()).toBe("attempt-2")
+  })
+  // altimate_change end
+
   test("should work with different return types", () => {
     const lazyString = lazy(() => "string")
     const lazyNumber = lazy(() => 123)
@@ -47,4 +90,5 @@ describe("util.lazy", () => {
     expect(lazyNull()).toBe(null)
     expect(lazyUndefined()).toBe(undefined)
   })
+
 })

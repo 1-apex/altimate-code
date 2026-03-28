@@ -248,6 +248,17 @@ describe("CredentialStore", () => {
     expect(CredentialStore.isSensitiveField("authenticator")).toBe(false)
   })
 
+  // altimate_change start — cover remaining SENSITIVE_FIELDS entries not in the test above
+  test("isSensitiveField covers BigQuery, SSL, and SSH credential fields", () => {
+    expect(CredentialStore.isSensitiveField("credentials_json")).toBe(true)
+    expect(CredentialStore.isSensitiveField("keyfile_json")).toBe(true)
+    expect(CredentialStore.isSensitiveField("ssl_key")).toBe(true)
+    expect(CredentialStore.isSensitiveField("ssl_cert")).toBe(true)
+    expect(CredentialStore.isSensitiveField("ssl_ca")).toBe(true)
+    expect(CredentialStore.isSensitiveField("ssh_password")).toBe(true)
+  })
+  // altimate_change end
+
   test("saveConnection strips inline private_key as sensitive", async () => {
     const config = { type: "snowflake", private_key: "-----BEGIN PRIVATE KEY-----\nMIIE..." } as any
     const { sanitized, warnings } = await CredentialStore.saveConnection("sf_keypair", config)

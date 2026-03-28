@@ -2653,3 +2653,204 @@ describe("ProviderTransform.variants", () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// ProviderTransform.temperature / topP / topK — model-specific inference params
+// ---------------------------------------------------------------------------
+
+function modelWithId(id: string) {
+  return { id, api: { id } } as any
+}
+
+describe("ProviderTransform.temperature", () => {
+  test("qwen models return 0.55", () => {
+    expect(ProviderTransform.temperature(modelWithId("qwen-2.5-coder"))).toBe(0.55)
+    expect(ProviderTransform.temperature(modelWithId("Qwen-Max"))).toBe(0.55)
+  })
+
+  test("claude models return undefined", () => {
+    expect(ProviderTransform.temperature(modelWithId("claude-3-5-sonnet"))).toBeUndefined()
+    expect(ProviderTransform.temperature(modelWithId("claude-opus-4-6"))).toBeUndefined()
+  })
+
+  test("gemini models return 1.0", () => {
+    expect(ProviderTransform.temperature(modelWithId("gemini-2.5-pro"))).toBe(1.0)
+  })
+
+  test("glm-4.6 and glm-4.7 return 1.0", () => {
+    expect(ProviderTransform.temperature(modelWithId("glm-4.6-flash"))).toBe(1.0)
+    expect(ProviderTransform.temperature(modelWithId("glm-4.7-plus"))).toBe(1.0)
+  })
+
+  test("minimax-m2 returns 1.0", () => {
+    expect(ProviderTransform.temperature(modelWithId("minimax-m2-pro"))).toBe(1.0)
+  })
+
+  test("kimi-k2 thinking variants return 1.0", () => {
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2-thinking"))).toBe(1.0)
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2.5-pro"))).toBe(1.0)
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2p5-chat"))).toBe(1.0)
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2-5-turbo"))).toBe(1.0)
+  })
+
+  test("plain kimi-k2 (non-thinking) returns 0.6", () => {
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2"))).toBe(0.6)
+    expect(ProviderTransform.temperature(modelWithId("kimi-k2-chat"))).toBe(0.6)
+  })
+
+  test("unknown model returns undefined", () => {
+    expect(ProviderTransform.temperature(modelWithId("meta-llama-3"))).toBeUndefined()
+    expect(ProviderTransform.temperature(modelWithId("mixtral-8x7b"))).toBeUndefined()
+  })
+})
+
+describe("ProviderTransform.topP", () => {
+  test("qwen models return 1", () => {
+    expect(ProviderTransform.topP(modelWithId("qwen-2.5-coder"))).toBe(1)
+  })
+
+  test("minimax-m2 returns 0.95", () => {
+    expect(ProviderTransform.topP(modelWithId("minimax-m2-pro"))).toBe(0.95)
+  })
+
+  test("gemini returns 0.95", () => {
+    expect(ProviderTransform.topP(modelWithId("gemini-2.5-pro"))).toBe(0.95)
+  })
+
+  test("kimi-k2.5 / k2p5 / k2-5 return 0.95", () => {
+    expect(ProviderTransform.topP(modelWithId("kimi-k2.5-pro"))).toBe(0.95)
+    expect(ProviderTransform.topP(modelWithId("kimi-k2p5"))).toBe(0.95)
+    expect(ProviderTransform.topP(modelWithId("kimi-k2-5"))).toBe(0.95)
+  })
+
+  test("plain kimi-k2 returns undefined (not in special list)", () => {
+    expect(ProviderTransform.topP(modelWithId("kimi-k2"))).toBeUndefined()
+  })
+
+  test("unknown model returns undefined", () => {
+    expect(ProviderTransform.topP(modelWithId("meta-llama-3"))).toBeUndefined()
+  })
+})
+
+describe("ProviderTransform.topK", () => {
+  test("minimax-m2 sub-variants (m2., m25, m21) return 40", () => {
+    expect(ProviderTransform.topK(modelWithId("minimax-m2.1-chat"))).toBe(40)
+    expect(ProviderTransform.topK(modelWithId("minimax-m25-pro"))).toBe(40)
+    expect(ProviderTransform.topK(modelWithId("minimax-m21-lite"))).toBe(40)
+  })
+
+  test("minimax-m2 base returns 20", () => {
+    expect(ProviderTransform.topK(modelWithId("minimax-m2-pro"))).toBe(20)
+    expect(ProviderTransform.topK(modelWithId("minimax-m2"))).toBe(20)
+  })
+
+  test("gemini returns 64", () => {
+    expect(ProviderTransform.topK(modelWithId("gemini-2.5-pro"))).toBe(64)
+  })
+
+  test("unknown model returns undefined", () => {
+    expect(ProviderTransform.topK(modelWithId("claude-3-5-sonnet"))).toBeUndefined()
+    expect(ProviderTransform.topK(modelWithId("gpt-5.1"))).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ProviderTransform.smallOptions — minimal config for auxiliary LLM calls
+// ---------------------------------------------------------------------------
+
+describe("ProviderTransform.smallOptions", () => {
+  function smallModel(overrides: { providerID: string; apiId: string; npm?: string }) {
+    return {
+      providerID: overrides.providerID,
+      api: {
+        id: overrides.apiId,
+        npm: overrides.npm ?? "",
+      },
+    } as any
+  }
+
+  test("openai gpt-5.1 (subdot) returns store:false + reasoningEffort:low", () => {
+    const model = smallModel({ providerID: "openai", apiId: "gpt-5.1-turbo" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ store: false, reasoningEffort: "low" })
+  })
+
+  test("openai gpt-5.2 returns store:false + reasoningEffort:low", () => {
+    const model = smallModel({ providerID: "openai", apiId: "gpt-5.2" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ store: false, reasoningEffort: "low" })
+  })
+
+  test("openai gpt-5 (base, no subdot) returns store:false + reasoningEffort:minimal", () => {
+    const model = smallModel({ providerID: "openai", apiId: "gpt-5" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ store: false, reasoningEffort: "minimal" })
+  })
+
+  test("openai non-gpt-5 returns only store:false", () => {
+    const model = smallModel({ providerID: "openai", apiId: "gpt-4o-mini" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ store: false })
+  })
+
+  test("github-copilot npm also triggers openai path", () => {
+    const model = smallModel({ providerID: "github-copilot", apiId: "gpt-5.1", npm: "@ai-sdk/github-copilot" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ store: false, reasoningEffort: "low" })
+  })
+
+  test("google gemini-3 returns thinkingLevel:minimal", () => {
+    const model = smallModel({ providerID: "google", apiId: "gemini-3-flash" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ thinkingConfig: { thinkingLevel: "minimal" } })
+  })
+
+  test("google gemini-2.5 returns thinkingBudget:0", () => {
+    const model = smallModel({ providerID: "google", apiId: "gemini-2.5-pro" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ thinkingConfig: { thinkingBudget: 0 } })
+  })
+
+  test("openrouter google model returns reasoning:disabled", () => {
+    const model = smallModel({ providerID: "openrouter", apiId: "google/gemini-2.5-pro" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ reasoning: { enabled: false } })
+  })
+
+  test("openrouter non-google returns reasoningEffort:minimal", () => {
+    const model = smallModel({ providerID: "openrouter", apiId: "anthropic/claude-3-5-sonnet" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ reasoningEffort: "minimal" })
+  })
+
+  test("venice returns disableThinking", () => {
+    const model = smallModel({ providerID: "venice", apiId: "deepseek-r1" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ veniceParameters: { disableThinking: true } })
+  })
+
+  test("unknown provider returns empty object", () => {
+    const model = smallModel({ providerID: "custom-provider", apiId: "custom-model" })
+    expect(ProviderTransform.smallOptions(model)).toEqual({})
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ProviderTransform.maxOutputTokens — output token cap
+// ---------------------------------------------------------------------------
+
+describe("ProviderTransform.maxOutputTokens", () => {
+  function tokenModel(output: number) {
+    return { limit: { output } } as any
+  }
+
+  test("caps at OUTPUT_TOKEN_MAX when model limit exceeds it", () => {
+    expect(ProviderTransform.maxOutputTokens(tokenModel(50000))).toBe(OUTPUT_TOKEN_MAX)
+  })
+
+  test("returns model limit when below cap", () => {
+    expect(ProviderTransform.maxOutputTokens(tokenModel(1000))).toBe(1000)
+  })
+
+  test("returns exact cap at boundary", () => {
+    expect(ProviderTransform.maxOutputTokens(tokenModel(OUTPUT_TOKEN_MAX))).toBe(OUTPUT_TOKEN_MAX)
+  })
+
+  test("falls back to OUTPUT_TOKEN_MAX when limit is 0", () => {
+    expect(ProviderTransform.maxOutputTokens(tokenModel(0))).toBe(OUTPUT_TOKEN_MAX)
+  })
+
+  test("falls back to OUTPUT_TOKEN_MAX when limit is NaN", () => {
+    expect(ProviderTransform.maxOutputTokens(tokenModel(NaN))).toBe(OUTPUT_TOKEN_MAX)
+  })
+})

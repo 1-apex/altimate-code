@@ -810,3 +810,52 @@ test("analyst prompt contains /data-viz skill", async () => {
     },
   })
 })
+
+// --- .env read protection tests ---
+
+test("builder agent asks for .env file reads but allows regular files", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const builder = await Agent.get("builder")
+      expect(builder).toBeDefined()
+      // .env files require user approval (security: prevents accidental secret exposure)
+      expect(PermissionNext.evaluate("read", ".env", builder!.permission).action).toBe("ask")
+      expect(PermissionNext.evaluate("read", ".env.local", builder!.permission).action).toBe("ask")
+      expect(PermissionNext.evaluate("read", ".env.production", builder!.permission).action).toBe("ask")
+      expect(PermissionNext.evaluate("read", "config/.env.staging", builder!.permission).action).toBe("ask")
+      // Regular files are allowed without prompting
+      expect(PermissionNext.evaluate("read", "src/index.ts", builder!.permission).action).toBe("allow")
+      expect(PermissionNext.evaluate("read", "package.json", builder!.permission).action).toBe("allow")
+      // .env.example is explicitly allowed (safe to share)
+      expect(PermissionNext.evaluate("read", ".env.example", builder!.permission).action).toBe("allow")
+    },
+  })
+})
+
+// --- analyst agent write denial tests ---
+
+test("analyst agent denies file modification and todo tools", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const analyst = await Agent.get("analyst")
+      expect(analyst).toBeDefined()
+      // Analyst is read-only — file modification tools should be denied.
+      // The analyst config starts with "*": "deny" then selectively allows
+      // read-only tools. edit/write/todowrite are not in the allow list,
+      // so they fall through to the catch-all deny.
+      expect(evalPerm(analyst, "edit")).toBe("deny")
+      expect(evalPerm(analyst, "write")).toBe("deny")
+      expect(evalPerm(analyst, "todowrite")).toBe("deny")
+      expect(evalPerm(analyst, "todoread")).toBe("deny")
+      // Read operations are explicitly allowed after the "*": "deny" base,
+      // so last-match-wins produces "allow"
+      expect(evalPerm(analyst, "read")).toBe("allow")
+      expect(evalPerm(analyst, "grep")).toBe("allow")
+      expect(evalPerm(analyst, "glob")).toBe("allow")
+    },
+  })
+})
