@@ -2,7 +2,7 @@ import type { DBTProjectIntegrationAdapter, CommandProcessResult } from "@altima
 
 export async function build(adapter: DBTProjectIntegrationAdapter, args: string[]) {
   const model = flag(args, "model")
-  if (!model) return { error: "Missing --model" }
+  if (!model) return project(adapter)
   const downstream = args.includes("--downstream")
   const result = await adapter.unsafeBuildModelImmediately({
     plusOperatorLeft: "",

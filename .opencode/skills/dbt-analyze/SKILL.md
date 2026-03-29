@@ -111,7 +111,7 @@ If no manifest is available:
 1. Run `lineage_check` on the changed SQL
 2. Show column-level data flow
 3. Note: downstream impact requires a manifest
-4. Suggest: `altimate-dbt build-project` to generate one
+4. Suggest: `altimate-dbt build` to generate one
 
 ## Common Mistakes
 
