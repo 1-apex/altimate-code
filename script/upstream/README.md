@@ -222,6 +222,44 @@ When we modify upstream files (not fully custom ones), we wrap our changes with 
 
 These help during conflict resolution — you can see exactly what we changed vs upstream code. The `analyze.ts` script audits for unclosed marker blocks.
 
+### Upstream Bug Fixes (`upstream_fix:` tag)
+
+When fixing a **bug in upstream code** (not adding a feature), use the `upstream_fix:` tag in the marker description:
+
+```typescript
+// altimate_change start — upstream_fix: days/hours calculation were swapped
+const days = Math.floor(input / 86400000)
+const hours = Math.floor((input % 86400000) / 3600000)
+// altimate_change end
+```
+
+**Why this matters:** Regular `altimate_change` markers protect features we added — they're permanent. But upstream bug fixes are **temporary**: once upstream ships their own fix, we should drop our marker and accept theirs.
+
+Without the `upstream_fix:` tag:
+- If upstream fixes the same bug, the merge creates a conflict (good — forces review)
+- But the reviewer doesn't know our change was a bug fix vs a feature, so they may keep both
+
+With the `upstream_fix:` tag:
+- Before each merge, run `--audit-fixes` to see all bug fixes we're carrying
+- During conflict resolution, reviewers know to check "did upstream fix this?" and can safely drop our version
+- After merge, any remaining `upstream_fix:` markers represent bugs upstream hasn't fixed yet
+
+**When to use which:**
+
+| Scenario | Marker |
+|----------|--------|
+| New feature/custom code | `// altimate_change start — description` |
+| Fix bug in upstream code | `// altimate_change start — upstream_fix: description` |
+| Branding change | No marker (handled by branding transforms) |
+| Code in `keepOurs` files | No marker needed |
+
+**Audit before merging:**
+
+```bash
+# List all upstream bug fixes we're carrying
+bun run script/upstream/analyze.ts --audit-fixes
+```
+
 ## File Organization
 
 ```

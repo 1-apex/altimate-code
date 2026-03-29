@@ -84,13 +84,45 @@ jobs:
         run: bun install
 
       - name: Run tests
-        run: bun test --timeout 30000
         working-directory: packages/opencode
         # Cloud E2E tests (Snowflake, BigQuery, Databricks) auto-skip when
         # ALTIMATE_CODE_CONN_* env vars are not set. Docker E2E tests auto-skip
         # when Docker is not available. No exclusion needed — skipIf handles it.
         # --timeout 30000: matches package.json "test" script; prevents 5s default
         # from cutting off tests that run bun install or bootstrap git instances.
+        #
+        # Bun 1.3.x has a known segfault during process cleanup after all tests
+        # pass (exit code 143/SIGTERM or 134/SIGABRT). We capture test output and
+        # check for real failures vs Bun crashes to avoid false CI failures.
+        shell: bash
+        run: |
+          # Redirect bun output to file, then cat it for CI visibility.
+          # This avoids tee/pipe issues where SIGTERM kills tee before flush.
+          bun test --timeout 30000 > /tmp/test-output.txt 2>&1 || true
+          cat /tmp/test-output.txt
+
+          # Extract pass/fail counts from Bun test summary (e.g., " 5362 pass")
+          PASS_COUNT=$(awk '/^ *[0-9]+ pass$/{print $1}' /tmp/test-output.txt || true)
+          FAIL_COUNT=$(awk '/^ *[0-9]+ fail$/{print $1}' /tmp/test-output.txt || true)
+
+          echo ""
+          echo "--- Test Summary ---"
+          echo "pass=${PASS_COUNT:-none} fail=${FAIL_COUNT:-none}"
+
+          # Real test failures — always fail CI
+          if [ -n "$FAIL_COUNT" ] && [ "$FAIL_COUNT" != "0" ]; then
+            echo "::error::$FAIL_COUNT test(s) failed"
+            exit 1
+          fi
+
+          # Tests passed (we have a pass count and zero/no failures)
+          if [ -n "$PASS_COUNT" ] && [ "$PASS_COUNT" -gt 0 ] 2>/dev/null; then
+            exit 0
+          fi
+
+          # No test summary at all — Bun crashed before running tests
+          echo "::error::No test results found in output — Bun may have crashed before running tests"
+          exit 1
 
   # ---------------------------------------------------------------------------
   # Driver E2E tests — only when driver code changes.

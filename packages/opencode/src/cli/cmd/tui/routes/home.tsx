@@ -38,7 +38,7 @@ export function Home() {
     return Object.values(sync.data.mcp).filter((x) => x.status === "connected").length
   })
 
-  // altimate_change start — fix race condition: don't show beginner UI until sessions loaded
+  // altimate_change start — upstream_fix: race condition shows beginner UI flash before sessions loaded
   const isFirstTimeUser = createMemo(() => {
     // Don't evaluate until sessions have actually loaded (avoid flash of beginner UI)
     // Return undefined to represent "loading" state

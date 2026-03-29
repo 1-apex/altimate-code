@@ -4,7 +4,6 @@ export namespace SkillFollowups {
     skill: string // skill name to suggest
     label: string // short display label
     description: string // why this is a good next step
-    condition?: string // optional: when this suggestion applies
   }
 
   // Map from skill name to follow-up suggestions
@@ -151,7 +150,8 @@ export namespace SkillFollowups {
   }
 
   // A special warehouse nudge for users who haven't connected yet
-  const WAREHOUSE_NUDGE = "**Tip:** Connect a warehouse to validate against real data. Run `/discover` to auto-detect your connections."
+  const WAREHOUSE_NUDGE =
+    "**Tip:** Connect a warehouse to validate against real data. Run `/discover` to auto-detect your connections."
 
   export function get(skillName: string): readonly Suggestion[] {
     return Object.freeze(FOLLOWUPS[skillName] ?? [])

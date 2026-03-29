@@ -246,6 +246,18 @@ describe("parseDiffForMarkerWarnings", () => {
     expect(warnings[0].context).toContain("first")
   })
 
+  test("upstream_fix: tagged markers are recognized as valid markers", () => {
+    const diff = makeDiff(
+      `@@ -50,4 +50,6 @@
+ const existing = true
++// altimate_change start — upstream_fix: days/hours were swapped
++const days = Math.floor(input / 86400000)
++// altimate_change end
+ const more = true`,
+    )
+    expect(parseDiffForMarkerWarnings("file.ts", diff)).toEqual([])
+  })
+
   test("real-world scenario: upgrade indicator in footer.tsx", () => {
     // Simulates the exact diff that leaked: UpgradeIndicator added to
     // session footer without markers, adjacent to existing yolo marker block.

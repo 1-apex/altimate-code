@@ -54,8 +54,10 @@ export namespace Locale {
       const minutes = Math.floor((input % 3600000) / 60000)
       return `${hours}h ${minutes}m`
     }
+    // altimate_change start — upstream_fix: days/hours calculation were swapped (hours used total, not remainder)
     const days = Math.floor(input / 86400000)
     const hours = Math.floor((input % 86400000) / 3600000)
+    // altimate_change end
     return `${days}d ${hours}h`
   }
 

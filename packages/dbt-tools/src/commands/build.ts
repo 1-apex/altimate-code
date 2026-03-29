@@ -2,8 +2,11 @@ import type { DBTProjectIntegrationAdapter, CommandProcessResult } from "@altima
 
 export async function build(adapter: DBTProjectIntegrationAdapter, args: string[]) {
   const model = flag(args, "model")
-  if (!model) return project(adapter)
   const downstream = args.includes("--downstream")
+  if (!model) {
+    if (downstream) return { error: "--downstream requires --model" }
+    return project(adapter)
+  }
   const result = await adapter.unsafeBuildModelImmediately({
     plusOperatorLeft: "",
     modelName: model,

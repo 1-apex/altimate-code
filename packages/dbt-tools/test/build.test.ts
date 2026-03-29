@@ -45,6 +45,14 @@ describe("build command", () => {
     })
   })
 
+  test("build --downstream without --model returns error", async () => {
+    const adapter = makeAdapter()
+    const result = await build(adapter, ["--downstream"])
+    expect(result).toEqual({ error: "--downstream requires --model" })
+    expect(adapter.unsafeBuildProjectImmediately).not.toHaveBeenCalled()
+    expect(adapter.unsafeBuildModelImmediately).not.toHaveBeenCalled()
+  })
+
   test("build surfaces stderr as error", async () => {
     const adapter = makeAdapter({
       unsafeBuildProjectImmediately: mock(() =>

@@ -35,6 +35,7 @@ const { values: args } = parseArgs({
     version: { type: "string", short: "v" },
     branding: { type: "boolean", default: false },
     markers: { type: "boolean", default: false },
+    "audit-fixes": { type: "boolean", default: false },
     strict: { type: "boolean", default: false },
     base: { type: "string" },
     verbose: { type: "boolean", default: false },
@@ -213,9 +214,7 @@ function printBrandingReport(report: BrandingReport, verbose: boolean): void {
     const maxLeaksToShow = verbose ? leaks.length : 5
     for (let i = 0; i < Math.min(leaks.length, maxLeaksToShow); i++) {
       const leak = leaks[i]
-      const truncated = leak.content.length > 80
-        ? leak.content.slice(0, 77) + "..."
-        : leak.content
+      const truncated = leak.content.length > 80 ? leak.content.slice(0, 77) + "..." : leak.content
       console.log(`    ${DIM}L${String(leak.line).padStart(4)}${RESET}  ${YELLOW}${leak.pattern}${RESET}`)
       console.log(`          ${DIM}${truncated}${RESET}`)
     }
@@ -298,14 +297,20 @@ async function analyzeVersion(version: string, config: MergeConfig): Promise<Ver
   // Check for marker files and potential conflicts
   for (const file of analysis.categories.transformable) {
     try {
-      const content = await $`git show HEAD:${file}`.cwd(root).text().catch(() => "")
+      const content = await $`git show HEAD:${file}`
+        .cwd(root)
+        .text()
+        .catch(() => "")
 
       if (content.includes(config.changeMarker)) {
         analysis.markerFiles.push(file)
       }
 
       // Check if we've modified this file (potential conflict)
-      const ourDiff = await $`git diff HEAD -- ${file}`.cwd(root).text().catch(() => "")
+      const ourDiff = await $`git diff HEAD -- ${file}`
+        .cwd(root)
+        .text()
+        .catch(() => "")
       if (ourDiff.trim().length > 0) {
         analysis.potentialConflicts.push(file)
       }
@@ -360,10 +365,16 @@ function printVersionAnalysis(analysis: VersionAnalysis): void {
   const line = "─".repeat(50)
   console.log(`  ${line}`)
   console.log(`  ${bold("Merge estimate:")}`)
-  console.log(`    Auto-resolvable:  ${GREEN}${categories.keepOurs.length + categories.skipFiles.length + categories.lockFiles.length}${RESET}`)
+  console.log(
+    `    Auto-resolvable:  ${GREEN}${categories.keepOurs.length + categories.skipFiles.length + categories.lockFiles.length}${RESET}`,
+  )
   console.log(`    Need transform:   ${categories.transformable.length}`)
-  console.log(`    Likely conflicts: ${analysis.potentialConflicts.length > 0 ? RED : GREEN}${analysis.potentialConflicts.length}${RESET}`)
-  console.log(`    Marker files:     ${analysis.markerFiles.length > 0 ? YELLOW : GREEN}${analysis.markerFiles.length}${RESET}`)
+  console.log(
+    `    Likely conflicts: ${analysis.potentialConflicts.length > 0 ? RED : GREEN}${analysis.potentialConflicts.length}${RESET}`,
+  )
+  console.log(
+    `    Marker files:     ${analysis.markerFiles.length > 0 ? YELLOW : GREEN}${analysis.markerFiles.length}${RESET}`,
+  )
   console.log()
 }
 
@@ -446,7 +457,9 @@ function printMarkerAnalysis(config: MergeConfig): void {
   const complete = markers.filter((m) => m.endLine !== null)
   const incomplete = markers.filter((m) => m.endLine === null)
 
-  console.log(`  Found ${bold(String(markers.length))} marker blocks in ${new Set(markers.map((m) => m.file)).size} files`)
+  console.log(
+    `  Found ${bold(String(markers.length))} marker blocks in ${new Set(markers.map((m) => m.file)).size} files`,
+  )
   console.log(`  ${GREEN}Complete (start + end):${RESET} ${complete.length}`)
 
   if (incomplete.length > 0) {
@@ -468,10 +481,50 @@ function printMarkerAnalysis(config: MergeConfig): void {
 
   // Summary
   console.log()
-  console.log(`  ${bold("Integrity:")} ${incomplete.length === 0
-    ? `${GREEN}All blocks properly closed${RESET}`
-    : `${RED}${incomplete.length} unclosed block(s)${RESET}`
-  }`)
+  console.log(
+    `  ${bold("Integrity:")} ${
+      incomplete.length === 0
+        ? `${GREEN}All blocks properly closed${RESET}`
+        : `${RED}${incomplete.length} unclosed block(s)${RESET}`
+    }`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Upstream fix audit (--audit-fixes)
+// ---------------------------------------------------------------------------
+
+function auditUpstreamFixes(config: MergeConfig): void {
+  const markers = findMarkers(config)
+  const fixes = markers.filter((m) => m.startComment.includes("upstream_fix:"))
+
+  console.log()
+  console.log(bold("=== Upstream Bug Fixes We're Carrying ==="))
+  console.log()
+
+  if (fixes.length === 0) {
+    console.log(`  ${GREEN}No upstream_fix: markers found.${RESET}`)
+    console.log(`  All our markers are feature additions, not bug fixes.`)
+    console.log()
+    return
+  }
+
+  console.log(`  Found ${bold(String(fixes.length))} upstream bug fix(es) to review before merge:\n`)
+
+  for (const fix of fixes) {
+    // Extract description after "upstream_fix:"
+    const desc = fix.startComment.replace(/.*upstream_fix:\s*/, "").replace(/\s*\*\/\s*$/, "")
+    const lines = fix.endLine ? `${fix.line}-${fix.endLine}` : `${fix.line}`
+    console.log(`  ${YELLOW}fix${RESET}  ${fix.file}:${lines}`)
+    console.log(`        ${desc}`)
+    console.log()
+  }
+
+  console.log(`  ${bold("Before each upstream merge:")}`)
+  console.log(`    1. Check if upstream fixed each issue in their release`)
+  console.log(`    2. If fixed upstream: accept their version, remove our marker`)
+  console.log(`    3. If not fixed: keep our marker (it will survive the merge)`)
+  console.log()
 }
 
 // ---------------------------------------------------------------------------
@@ -490,6 +543,7 @@ function printUsage(): void {
     --version, -v <tag>   Upstream version to analyze
     --branding            Scan codebase for upstream branding leaks
     --markers             Check changed files for missing altimate_change markers
+    --audit-fixes         List all upstream_fix: markers (bug fixes we made to upstream code)
     --base <branch>       Base branch for --markers comparison (default: HEAD)
     --strict              Exit with code 1 on warnings (for CI)
     --verbose             Show all results (not just top 20)
@@ -508,6 +562,9 @@ function printUsage(): void {
 
     ${dim("# Check PR for missing markers (CI)")}
     bun run script/upstream/analyze.ts --markers --base main --strict
+
+    ${dim("# List upstream bug fixes we're carrying (review before merge)")}
+    bun run script/upstream/analyze.ts --audit-fixes
 
     ${dim("# Machine-readable output for CI")}
     bun run script/upstream/analyze.ts --branding --json
@@ -530,14 +587,9 @@ function getChangedFiles(base?: string): string[] {
   const root = repoRoot()
   // Only check Modified files (M), not Added (A). New files don't exist
   // upstream so they can't be overwritten by a merge — no markers needed.
-  const cmd = base
-    ? `git diff --name-only --diff-filter=M ${base}...HEAD`
-    : `git diff --name-only --diff-filter=M HEAD`
+  const cmd = base ? `git diff --name-only --diff-filter=M ${base}...HEAD` : `git diff --name-only --diff-filter=M HEAD`
   try {
-    return execSync(cmd, { cwd: root, encoding: "utf-8" })
-      .trim()
-      .split("\n")
-      .filter(Boolean)
+    return execSync(cmd, { cwd: root, encoding: "utf-8" }).trim().split("\n").filter(Boolean)
   } catch {
     return []
   }
@@ -646,8 +698,14 @@ export function parseDiffForMarkerWarnings(file: string, diffOutput: string): Ma
       currentLine++
       const content = line.slice(1).trim()
 
-      if (content.includes("altimate_change start")) { inMarkerBlock = true; continue }
-      if (content.includes("altimate_change end")) { inMarkerBlock = false; continue }
+      if (content.includes("altimate_change start")) {
+        inMarkerBlock = true
+        continue
+      }
+      if (content.includes("altimate_change end")) {
+        inMarkerBlock = false
+        continue
+      }
       if (content.includes("altimate_change")) continue
 
       // Only flag added lines as violations — context lines are pre-existing
@@ -686,9 +744,7 @@ function checkFileForMarkers(file: string, base?: string): MarkerWarning[] {
   const { execSync } = require("child_process")
   const root = repoRoot()
 
-  const diffCmd = base
-    ? `git diff -U5 ${base}...HEAD -- "${file}"`
-    : `git diff -U5 HEAD -- "${file}"`
+  const diffCmd = base ? `git diff -U5 ${base}...HEAD -- "${file}"` : `git diff -U5 HEAD -- "${file}"`
 
   let diffOutput: string
   try {
@@ -770,8 +826,9 @@ async function main(): Promise<void> {
   const hasVersion = Boolean(args.version)
   const hasBranding = Boolean(args.branding)
   const hasMarkers = Boolean(args.markers)
+  const hasAuditFixes = Boolean(args["audit-fixes"])
 
-  if (!hasVersion && !hasBranding && !hasMarkers) {
+  if (!hasVersion && !hasBranding && !hasMarkers && !hasAuditFixes) {
     // Default: run marker analysis
     printMarkerAnalysis(config)
 
@@ -779,7 +836,14 @@ async function main(): Promise<void> {
     logger.info("Use --version <tag> to analyze an upstream version")
     logger.info("Use --branding to audit for branding leaks")
     logger.info("Use --markers --base main to check for missing markers")
+    logger.info("Use --audit-fixes to list upstream bug fixes we're carrying")
     return
+  }
+
+  // ─── Upstream fix audit ──────────────────────────────────────────────────
+  if (hasAuditFixes) {
+    auditUpstreamFixes(config)
+    if (!hasVersion && !hasBranding && !hasMarkers) return
   }
 
   // ─── Version analysis ──────────────────────────────────────────────────────
