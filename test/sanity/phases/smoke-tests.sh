@@ -91,6 +91,10 @@ test_postgres() {
     fi
   fi
   cd "$WORKDIR" || return 1
+  # Export explicit connection config so the CLI doesn't guess the user
+  local pg_user="${TEST_PG_USER:-postgres}"
+  local pg_pass="${TEST_PG_PASSWORD:-testpass123}"
+  export ALTIMATE_CODE_CONN_PG_TEST="{\"type\":\"postgres\",\"host\":\"${pg_host}\",\"port\":${pg_port},\"user\":\"${pg_user}\",\"password\":\"${pg_pass}\",\"database\":\"postgres\"}"
   altimate_run "postgres" "run SELECT 1 against postgres at ${pg_host}:${pg_port}"
   local output=$(get_output "postgres")
   if echo "$output" | grep -qi "TIMEOUT\|unhandled"; then

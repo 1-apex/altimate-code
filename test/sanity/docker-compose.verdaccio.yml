@@ -22,6 +22,7 @@ services:
       - ALTIMATE_CODE_CONN_SNOWFLAKE_TEST
       - TEST_PG_HOST=postgres
       - TEST_PG_PORT=5432
+      - TEST_PG_USER=postgres
       - TEST_PG_PASSWORD=testpass123
       - TEST_MONGODB_HOST=mongodb
       - TEST_MONGODB_PORT=27017
