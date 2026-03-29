@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.14] - 2026-03-28
+
+### Added
+
+- **MongoDB driver support** — 11th supported database with full MQL command set (find, aggregate, CRUD, indexes), BSON type serialization, schema introspection via document sampling, and cross-database queries; includes 90 E2E tests (#482)
+- **Skill follow-up suggestions** — contextual "What's Next?" suggestions after skill completion to reduce first-run churn; maps 12 skills to relevant follow-ups with warehouse discovery nudge (#546)
+- **`altimate-dbt build` without `--model`** — builds the entire dbt project via `unsafeBuildProjectImmediately`, replacing the separate `build-project` command (#546)
+- **`upstream_fix:` marker convention** — new tag for temporary upstream bug fixes with `--audit-fixes` command to review carried fixes before upstream merges (#555)
+- **Verdaccio-based sanity suite** — local npm registry test harness for real install verification, smoke tests, and upgrade scenarios (#503)
+
+### Fixed
+
+- **Locale duration days/hours swap** — `Locale.duration()` for values ≥24h showed wrong days/hours (total hours instead of remainder); e.g., 25h now correctly shows `1d 1h` (#529)
+- **Dispatcher `reset()` not clearing lazy registration hook** — `reset()` only cleared handlers but left `_ensureRegistered` alive, causing flaky test failures (#529)
+- **Impact analysis showing project-wide test count** — was using `manifest.test_count` (all tests in project) instead of counting only tests referencing the target model (#529)
+- **Prototype pollution in `SkillFollowups.get()`** — `FOLLOWUPS["__proto__"]` traversed `Object.prototype`; fixed with `Object.hasOwn()` guard (#558)
+- **Shallow freeze in `SkillFollowups.get()`** — `Object.freeze()` on array didn't freeze nested objects, allowing shared state mutation; fixed with deep copy (#558)
+- **CI Bun segfault resilience** — Bun 1.3.x crashes during test cleanup now handled by checking actual pass/fail summary instead of exit code (#555)
+
+### Testing
+
+- 52 adversarial tests for v0.5.14 release: `SkillFollowups` injection/boundary/immutability, `Locale.duration` tier transitions, `Dispatcher.reset` hook cleanup (#558)
+- Consolidated 39 test PRs — 1,173 new tests across session, provider, MCP, CLI stats, bus, and utility modules (#498, #514, #545)
+
 ## [0.5.13] - 2026-03-26
 
 ### Fixed
