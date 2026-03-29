@@ -323,6 +323,7 @@ export namespace SessionPrompt {
     // altimate_change start — plan refinement tracking
     let planRevisionCount = 0
     let planHasWritten = false
+    let planLastUserMsgId: string | undefined
     // altimate_change end
     let emergencySessionEndFired = false
     // altimate_change start — quality signal, tool chain, error fingerprint tracking
@@ -637,10 +638,12 @@ export namespace SessionPrompt {
           const planPath = Session.plan(session)
           planHasWritten = await Filesystem.exists(planPath)
         }
-        // If plan was already written and user sent a new message, this is a refinement
-        if (planHasWritten && step > 1) {
-          // Detect approval phrases in the last user message text
-          const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
+        // If plan was already written and user sent a new message, this is a refinement.
+        // Only count once per user message (not on internal loop iterations).
+        const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
+        const currentUserMsgId = lastUserMsg?.info.id
+        if (planHasWritten && step > 1 && currentUserMsgId && currentUserMsgId !== planLastUserMsgId) {
+          planLastUserMsgId = currentUserMsgId
           const userText = lastUserMsg?.parts
             .filter((p): p is MessageV2.TextPart => p.type === "text" && !("synthetic" in p && p.synthetic))
             .map((p) => p.text.toLowerCase())
@@ -678,7 +681,7 @@ export namespace SessionPrompt {
             const refinementQualifiers = [" but ", " however ", " except ", " change ", " modify ", " update ", " instead ", " although ", " with the following", " with these"]
             const hasRefinementQualifier = refinementQualifiers.some((q) => userText.includes(q))
 
-            const rejectionPhrases = ["don't", "stop", "reject", "not good", "undo", "abort", "start over", "wrong"]
+            const rejectionPhrases = ["don't", "stop", "reject", "not good", "not approve", "not approved", "disapprove", "undo", "abort", "start over", "wrong"]
             // "no" as a standalone word to avoid matching "know", "notion", etc.
             const rejectionWords = ["no"]
             const approvalPhrases = ["looks good", "proceed", "approved", "approve", "lgtm", "go ahead", "ship it", "yes", "perfect"]
@@ -689,7 +692,12 @@ export namespace SessionPrompt {
               return regex.test(userText)
             })
             const isRejection = isRejectionPhrase || isRejectionWord
-            const isApproval = !isRejection && !hasRefinementQualifier && approvalPhrases.some((phrase) => userText.includes(phrase))
+            // Use word-boundary matching for approval phrases to avoid false positives
+            // e.g. "this doesn't look good" should NOT match "looks good"
+            const isApproval = !isRejection && !hasRefinementQualifier && approvalPhrases.some((phrase) => {
+              const regex = new RegExp(`\\b${phrase.replace(/\s+/g, "\\s+")}\\b`, "i")
+              return regex.test(userText)
+            })
             const action = isRejection ? "reject" : isApproval ? "approve" : "refine"
             Telemetry.track({
               type: "plan_revision",
