@@ -1,17 +1,15 @@
-ci: add Verdaccio sanity suite to CI and release workflows
+feat: add task intent classification telemetry event
 
-Adds the Verdaccio-based sanity suite (real `npm install -g` flow)
-to both CI and release pipelines:
+Add `task_classified` event emitted at session start with keyword/regex
+classification of the first user message. Categories: debug_dbt, write_sql,
+optimize_query, build_model, analyze_lineage, explore_schema, migrate_sql,
+manage_warehouse, finops, general.
 
-**CI (`ci.yml`):**
-- New `sanity-verdaccio` job on push to main
-- Builds linux-x64 binary + dbt-tools, runs full Docker Compose suite
-- Independent of other jobs (doesn't block PRs)
+- `classifyTaskIntent()` — pure regex matcher, zero LLM cost, <1ms
+- Includes warehouse type from fingerprint cache
+- Strong/weak confidence levels (1.0 vs 0.5)
+- 15 unit tests covering all intent categories + edge cases
 
-**Release (`release.yml`):**
-- New `sanity-verdaccio` job between build and npm publish
-- Downloads linux-x64 artifact from build matrix
-- **Blocks `publish-npm`** — broken install flow prevents release
-- Dependency chain: build → sanity-verdaccio → publish-npm → github-release
+Closes AI-6029
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>

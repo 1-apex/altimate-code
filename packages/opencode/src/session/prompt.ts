@@ -325,6 +325,16 @@ export namespace SessionPrompt {
     let planHasWritten = false
     // altimate_change end
     let emergencySessionEndFired = false
+    // altimate_change start — quality signal, tool chain, error fingerprint tracking
+    let lastToolCategory = ""
+    const toolChain: string[] = []
+    let toolErrorCount = 0
+    let errorRecoveryCount = 0
+    let lastToolWasError = false
+    interface ErrorRecord { toolName: string; toolCategory: string; errorClass: string; errorHash: string; recovered: boolean; recoveryTool: string }
+    const errorRecords: ErrorRecord[] = []
+    let pendingError: Omit<ErrorRecord, "recovered" | "recoveryTool"> | null = null
+    // altimate_change end
     const emergencySessionEnd = () => {
       if (emergencySessionEndFired) return
       emergencySessionEndFired = true
@@ -767,6 +777,30 @@ export namespace SessionPrompt {
           agent: lastUser.agent,
           project_id: Instance.project?.id ?? "",
         })
+        // altimate_change start — task intent classification (keyword/regex, zero LLM cost)
+        const userMsg = msgs.find((m) => m.info.id === lastUser!.id)
+        if (userMsg) {
+          const userText = userMsg.parts
+            .filter((p): p is MessageV2.TextPart => p.type === "text" && !p.ignored && !p.synthetic)
+            .map((p) => p.text)
+            .join("\n")
+          if (userText.length > 0) {
+            const { intent, confidence } = Telemetry.classifyTaskIntent(userText)
+            const fp = Fingerprint.get()
+            const warehouseType = fp?.tags.find((t) =>
+              ["snowflake", "bigquery", "redshift", "databricks", "postgres", "mysql", "sqlite", "duckdb", "trino", "spark", "clickhouse"].includes(t),
+            ) ?? "unknown"
+            Telemetry.track({
+              type: "task_classified",
+              timestamp: Date.now(),
+              session_id: sessionID,
+              intent: intent as any,
+              confidence,
+              warehouse_type: warehouseType,
+            })
+          }
+        }
+        // altimate_change end — task intent classification
         // altimate_change end
       }
 
@@ -878,6 +912,45 @@ export namespace SessionPrompt {
       const stepParts = await MessageV2.parts(processor.message.id)
       toolCallCount += stepParts.filter((p) => p.type === "tool").length
       if (processor.message.error) sessionHadError = true
+      // altimate_change start — quality signal + tool chain + error fingerprints
+      const toolParts = stepParts.filter((p) => p.type === "tool")
+      for (const part of toolParts) {
+        if (part.type !== "tool") continue
+        const toolType = part.tool.startsWith("mcp__") ? "mcp" as const : "standard" as const
+        const toolCategory = Telemetry.categorizeToolName(part.tool, toolType)
+        lastToolCategory = toolCategory
+        if (toolChain.length < 50) toolChain.push(part.tool)
+        const isError = part.state?.status === "error"
+        if (isError) {
+          toolErrorCount++
+          // Flush previous unrecovered error before recording new one
+          if (pendingError) {
+            if (errorRecords.length < 200) errorRecords.push({ ...pendingError, recovered: false, recoveryTool: "" })
+          }
+          lastToolWasError = true
+          const errorMsg = part.state.status === "error" && typeof part.state.error === "string" ? part.state.error : "unknown"
+          const masked = Telemetry.maskString(errorMsg).slice(0, 500)
+          pendingError = {
+            toolName: part.tool,
+            toolCategory,
+            errorClass: Telemetry.classifyError(errorMsg),
+            errorHash: Telemetry.hashError(masked),
+          }
+        } else {
+          if (lastToolWasError && pendingError) {
+            errorRecoveryCount++
+            if (errorRecords.length < 200) errorRecords.push({ ...pendingError, recovered: true, recoveryTool: part.tool })
+            pendingError = null
+          }
+          lastToolWasError = false
+        }
+      }
+      // Flush unrecovered error at end of step
+      if (pendingError && !lastToolWasError) {
+        errorRecords.push({ ...pendingError, recovered: false, recoveryTool: "" })
+        pendingError = null
+      }
+      // altimate_change end — quality signal + tool chain + error fingerprints
       // altimate_change end
 
       // altimate_change start — detect plan file creation after tool calls
@@ -911,6 +984,51 @@ export namespace SessionPrompt {
         : sessionTotalCost === 0 && toolCallCount === 0
           ? "abandoned"
           : "completed"
+    // altimate_change start — emit quality signal, tool chain, and error fingerprint events
+    Telemetry.track({
+      type: "task_outcome_signal",
+      timestamp: Date.now(),
+      session_id: sessionID,
+      signal: Telemetry.deriveQualitySignal(outcome),
+      tool_count: toolCallCount,
+      step_count: step,
+      duration_ms: Date.now() - sessionStartTime,
+      last_tool_category: lastToolCategory || "none",
+    })
+    // Tool chain effectiveness — aggregated tool sequence + outcome
+    if (toolChain.length > 0) {
+      Telemetry.track({
+        type: "tool_chain_outcome",
+        timestamp: Date.now(),
+        session_id: sessionID,
+        chain: JSON.stringify(toolChain),
+        chain_length: toolChain.length,
+        had_errors: toolErrorCount > 0,
+        error_recovery_count: errorRecoveryCount,
+        final_outcome: outcome,
+        total_duration_ms: Date.now() - sessionStartTime,
+        total_cost: sessionTotalCost,
+      })
+    }
+    // Flush any pending unrecovered error
+    if (pendingError) {
+      errorRecords.push({ ...pendingError, recovered: false, recoveryTool: "" })
+    }
+    // Error fingerprints — one event per unique error (capped at 20)
+    for (const err of errorRecords.slice(0, 20)) {
+      Telemetry.track({
+        type: "error_fingerprint",
+        timestamp: Date.now(),
+        session_id: sessionID,
+        error_hash: err.errorHash,
+        error_class: err.errorClass,
+        tool_name: err.toolName,
+        tool_category: err.toolCategory,
+        recovery_successful: err.recovered,
+        recovery_tool: err.recoveryTool,
+      })
+    }
+    // altimate_change end — emit quality signal, tool chain, and error fingerprint events
     Telemetry.track({
       type: "agent_outcome",
       timestamp: Date.now(),

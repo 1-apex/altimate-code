@@ -212,6 +212,13 @@ export namespace Telemetry {
         dbt_model_count_bucket: string
         dbt_source_count_bucket: string
         dbt_test_count_bucket: string
+        // altimate_change start — dbt project fingerprint expansion
+        dbt_snapshot_count_bucket?: string
+        dbt_seed_count_bucket?: string
+        /** JSON-encoded Record<string, number> — count per materialization type */
+        dbt_materialization_dist?: string
+        dbt_macro_count_bucket?: string
+        // altimate_change end
         connection_sources: string[]
         mcp_server_count: number
         skill_count: number
@@ -445,7 +452,208 @@ export namespace Telemetry {
         dialect?: string
         duration_ms: number
       }
+    // implicit quality signal for task outcome intelligence
+    | {
+        type: "task_outcome_signal"
+        timestamp: number
+        session_id: string
+        /** Behavioral signal derived from session outcome patterns */
+        signal: "accepted" | "error" | "abandoned" | "cancelled"
+        /** Total tool calls in this loop() invocation */
+        tool_count: number
+        /** Number of LLM generation steps in this loop() invocation */
+        step_count: number
+        /** Total session wall-clock duration in milliseconds */
+        duration_ms: number
+        /** Last tool category the agent used (or "none") */
+        last_tool_category: string
+      }
+    // task intent classification for understanding DE problem distribution
+    | {
+        type: "task_classified"
+        timestamp: number
+        session_id: string
+        /** Classified intent category */
+        intent:
+          | "debug_dbt"
+          | "write_sql"
+          | "optimize_query"
+          | "build_model"
+          | "analyze_lineage"
+          | "explore_schema"
+          | "migrate_sql"
+          | "manage_warehouse"
+          | "finops"
+          | "general"
+        /** Keyword match confidence: 1.0 for strong match, 0.5 for weak */
+        confidence: number
+        /** Detected warehouse type from fingerprint (or "unknown") */
+        warehouse_type: string
+      }
+    // schema complexity signal — structural metrics from warehouse introspection
+    | {
+        type: "schema_complexity"
+        timestamp: number
+        session_id: string
+        warehouse_type: string
+        /** Bucketed table count */
+        table_count_bucket: string
+        /** Bucketed total column count across all tables */
+        column_count_bucket: string
+        /** Bucketed schema count */
+        schema_count_bucket: string
+        /** Average columns per table (rounded to integer) */
+        avg_columns_per_table: number
+      }
+    // sql structure fingerprint — AST shape without content
+    | {
+        type: "sql_fingerprint"
+        timestamp: number
+        session_id: string
+        /** JSON-encoded statement types, e.g. ["SELECT"] */
+        statement_types: string
+        /** Broad categories, e.g. ["query"] */
+        categories: string
+        /** Number of tables referenced */
+        table_count: number
+        /** Number of functions used */
+        function_count: number
+        /** Whether the query has subqueries */
+        has_subqueries: boolean
+        /** Whether the query uses aggregation */
+        has_aggregation: boolean
+        /** Whether the query uses window functions */
+        has_window_functions: boolean
+        /** AST node count — proxy for complexity */
+        node_count: number
+      }
+    // error pattern fingerprint — hashed error grouping with recovery data
+    | {
+        type: "error_fingerprint"
+        timestamp: number
+        session_id: string
+        /** SHA256 hash of normalized (masked) error message for grouping */
+        error_hash: string
+        /** Classification from classifyError() */
+        error_class: string
+        /** Tool that produced the error */
+        tool_name: string
+        /** Tool category */
+        tool_category: string
+        /** Whether a subsequent tool call succeeded (error was recovered) */
+        recovery_successful: boolean
+        /** Tool that succeeded after the error (if recovered) */
+        recovery_tool: string
+      }
+    // tool chain effectiveness — aggregated tool sequence + outcome at session end
+    | {
+        type: "tool_chain_outcome"
+        timestamp: number
+        session_id: string
+        /** JSON-encoded ordered tool names (capped at 50) */
+        chain: string
+        /** Number of tools in the chain */
+        chain_length: number
+        /** Whether any tool call errored */
+        had_errors: boolean
+        /** Number of errors followed by successful tool calls */
+        error_recovery_count: number
+        /** Final session outcome */
+        final_outcome: string
+        /** Total session duration in ms */
+        total_duration_ms: number
+        /** Total LLM cost */
+        total_cost: number
+      }
   // altimate_change end
+
+  /** SHA256 hash a masked error message for anonymous grouping. */
+  export function hashError(maskedMessage: string): string {
+    return createHash("sha256").update(maskedMessage).digest("hex").slice(0, 16)
+  }
+
+  /** Classify user intent from the first message text.
+   *  Pure regex/keyword matcher — zero LLM cost, <1ms. */
+  export function classifyTaskIntent(
+    text: string,
+  ): { intent: string; confidence: number } {
+    const lower = text.slice(0, 2000).toLowerCase()
+
+    // Order matters: more specific patterns first
+    const patterns: Array<{ intent: string; strong: RegExp[]; weak: RegExp[] }> = [
+      {
+        intent: "debug_dbt",
+        strong: [/dbt\s+.*?(error|fail|bug|issue|broken|fix|debug|not\s+work)/],
+        weak: [/dbt\s+(run|build|test|compile|parse)/, /dbt_project/, /ref\s*\(/, /source\s*\(/],
+      },
+      {
+        intent: "build_model",
+        strong: [/(?:create|build|write|add|new)\s+.*?(?:dbt\s+)?model/, /(?:create|build)\s+.*?(?:staging|mart|dim|fact)/],
+        weak: [/\bmodel\b/, /materialization/, /incremental/],
+      },
+      {
+        intent: "optimize_query",
+        strong: [/optimiz|performance|slow\s+query|speed\s+up|make.*faster|too\s+slow|query\s+cost/],
+        weak: [/index|partition|cluster|explain\s+plan/],
+      },
+      {
+        intent: "write_sql",
+        strong: [/(?:write|create|build|generate)\s+(?:a\s+)?(?:sql|query)/, /(?:write|create)\s+(?:a\s+)?(?:select|insert|update|delete)/],
+        weak: [/\bsql\b/, /\bquery\b/, /\bjoin\b/, /\bwhere\b/],
+      },
+      {
+        intent: "analyze_lineage",
+        strong: [/lineage|upstream|downstream|dependency|depends\s+on|impact\s+analysis/],
+        weak: [/dag|graph|flow|trace/],
+      },
+      {
+        intent: "explore_schema",
+        strong: [/(?:show|list|describe|inspect|explore)\s+.*?(?:schema|tables?|columns?|database)/, /what\s+.*?(?:tables|columns|schemas)/],
+        weak: [/\bschema\b/, /\btable\b/, /\bcolumn\b/, /introspect/],
+      },
+      {
+        intent: "migrate_sql",
+        strong: [/migrat|convert.*(?:to|from)\s+.*?(?:snowflake|bigquery|postgres|redshift|databricks)/, /translate.*(?:sql|dialect)/],
+        weak: [/dialect|transpile|port\s+(?:to|from)/],
+      },
+      {
+        intent: "manage_warehouse",
+        strong: [/(?:connect|setup|configure|add|test)\s+.*?(?:warehouse|connection|database)/, /warehouse.*(?:config|setting)/],
+        weak: [/\bwarehouse\b/, /connection\s+string/, /\bcredentials\b/],
+      },
+      {
+        intent: "finops",
+        strong: [/cost|spend|bill|credits|usage|expensive\s+quer|warehouse\s+size/],
+        weak: [/resource|utilization|idle/],
+      },
+    ]
+
+    for (const { intent, strong, weak } of patterns) {
+      if (strong.some((r) => r.test(lower))) return { intent, confidence: 1.0 }
+    }
+    for (const { intent, weak } of patterns) {
+      if (weak.some((r) => r.test(lower))) return { intent, confidence: 0.5 }
+    }
+    return { intent: "general", confidence: 1.0 }
+  }
+
+  /** Derive a quality signal from the agent outcome.
+   *  Exported so tests can verify the derivation logic without
+   *  duplicating the implementation. */
+  export function deriveQualitySignal(
+    outcome: "completed" | "abandoned" | "aborted" | "error",
+  ): "accepted" | "error" | "abandoned" | "cancelled" {
+    switch (outcome) {
+      case "abandoned":
+        return "abandoned"
+      case "aborted":
+        return "cancelled"
+      case "error":
+        return "error"
+      case "completed":
+        return "accepted"
+    }
+  }
 
   // altimate_change start — expanded error classification patterns for better triage
   // Order matters: earlier patterns take priority. Use specific phrases, not

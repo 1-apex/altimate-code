@@ -50,3 +50,37 @@ export function classifyAndCheck(sql: string): { queryType: "read" | "write"; bl
   const queryType = categories.some((c: string) => !READ_CATEGORIES.has(c)) ? "write" : "read"
   return { queryType: queryType as "read" | "write", blocked }
 }
+
+// altimate_change start — SQL structure fingerprint for telemetry (no content, only shape)
+export interface SqlFingerprint {
+  statement_types: string[]
+  categories: string[]
+  table_count: number
+  function_count: number
+  has_subqueries: boolean
+  has_aggregation: boolean
+  has_window_functions: boolean
+  node_count: number
+}
+
+/** Compute a PII-safe structural fingerprint of a SQL query.
+ *  Uses altimate-core AST parsing — local, no API calls, ~1-5ms. */
+export function computeSqlFingerprint(sql: string): SqlFingerprint | null {
+  try {
+    const stmtResult = core.getStatementTypes(sql)
+    const meta = core.extractMetadata(sql)
+    return {
+      statement_types: stmtResult?.types ?? [],
+      categories: stmtResult?.categories ?? [],
+      table_count: meta?.tables?.length ?? 0,
+      function_count: meta?.functions?.length ?? 0,
+      has_subqueries: meta?.has_subqueries ?? false,
+      has_aggregation: meta?.has_aggregation ?? false,
+      has_window_functions: meta?.has_window_functions ?? false,
+      node_count: meta?.node_count ?? 0,
+    }
+  } catch {
+    return null
+  }
+}
+// altimate_change end
