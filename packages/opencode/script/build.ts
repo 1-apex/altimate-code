@@ -270,10 +270,12 @@ for (const item of targets) {
   })
 
   // Create backward-compatible altimate-code alias
+  // Use hard copy instead of symlink — npm publish and Docker COPY can strip symlinks,
+  // causing "Binary not found" in Verdaccio sanity tests.
   if (item.os === "win32") {
     await $`cp dist/${name}/bin/altimate.exe dist/${name}/bin/altimate-code.exe`.nothrow()
   } else {
-    await $`ln -sf altimate dist/${name}/bin/altimate-code`.nothrow()
+    await $`cp dist/${name}/bin/altimate dist/${name}/bin/altimate-code`.nothrow()
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`
