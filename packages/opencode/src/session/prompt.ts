@@ -1616,6 +1616,7 @@ You should build your plan incrementally by writing to or editing this file. NOT
 
 ## Plan Workflow
 
+// altimate_change start — two-step plan approach with refinement loop
 ## Two-Step Plan Approach
 
 When creating a plan:
@@ -1629,6 +1630,7 @@ When the user provides feedback on a plan you have already written:
 2. Incorporate their feedback into the plan
 3. Update the plan file with revisions
 4. Summarize what changed
+// altimate_change end
 
 ### Phase 1: Initial Understanding
 Goal: Gain a comprehensive understanding of the user's request by reading through code and asking them questions. Critical: In this phase you should only use the explore subagent type.
