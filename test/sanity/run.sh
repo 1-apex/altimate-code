@@ -33,11 +33,17 @@ run_phase() {
 # Phase 1: Always run install verification
 run_phase "$SCRIPT_DIR/phases/verify-install.sh" "Verify Installation"
 
+# Phase 1b: Extended install verification (packaging, permissions, bundling)
+run_phase "$SCRIPT_DIR/phases/verify-install-extended.sh" "Extended Installation Verification"
+
 # Phase 2: Smoke tests (needs ANTHROPIC_API_KEY)
 run_phase "$SCRIPT_DIR/phases/smoke-tests.sh" "Smoke Tests"
 
 # Phase 3: Resilience tests
 run_phase "$SCRIPT_DIR/phases/resilience.sh" "Resilience Tests"
+
+# Phase 3b: Extended resilience (recovery, concurrency, config edge cases)
+run_phase "$SCRIPT_DIR/phases/resilience-extended.sh" "Extended Resilience Tests"
 
 # Phase 4: Upgrade verification (only in upgrade mode)
 if [ "$MODE" = "--upgrade" ]; then
@@ -47,6 +53,9 @@ if [ "$MODE" = "--upgrade" ]; then
   fi
   run_phase "$SCRIPT_DIR/phases/verify-upgrade.sh" "Upgrade Verification"
 fi
+
+# Phase 5: Security tests (credential leakage, input sanitization, isolation)
+run_phase "$SCRIPT_DIR/phases/security.sh" "Security Tests"
 
 echo "========================================"
 if [ $EXIT_CODE -eq 0 ]; then

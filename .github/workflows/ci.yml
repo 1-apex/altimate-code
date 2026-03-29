@@ -360,9 +360,11 @@ jobs:
         run: bun install
 
       - name: Build CLI binary
+        # target-index=1 = linux-x64 (see release.yml matrix)
         run: bun run packages/opencode/script/build.ts --target-index=1
         env:
           OPENCODE_VERSION: 0.0.0-sanity-${{ github.sha }}
+          OPENCODE_RELEASE: "1"
           MODELS_DEV_API_JSON: test/tool/fixtures/models-api.json
 
       - name: Build dbt-tools
