@@ -344,9 +344,9 @@ describe("Build and package branding", () => {
     expect(buildTs).toContain("Python engine has been eliminated")
   })
 
-  test("build.ts creates altimate-code backward-compat symlink", () => {
-    // Unix: symlink
-    expect(buildTs).toContain("ln -sf altimate")
+  test("build.ts creates altimate-code backward-compat alias", () => {
+    // Unix: hard copy (not symlink — npm publish strips symlinks)
+    expect(buildTs).toContain("cp dist/${name}/bin/altimate dist/${name}/bin/altimate-code")
     // Windows: copy
     expect(buildTs).toContain("altimate-code.exe")
   })
