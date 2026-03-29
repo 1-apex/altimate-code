@@ -223,9 +223,9 @@ export namespace Server {
         openAPIRouteHandler(app, {
           documentation: {
             info: {
-              title: "opencode",
+              title: "altimate-code",
               version: "0.0.3",
-              description: "opencode api",
+              description: "altimate-code api",
             },
             openapi: "3.1.1",
           },
@@ -583,9 +583,9 @@ export namespace Server {
     const result = await generateSpecs(Default(), {
       documentation: {
         info: {
-          title: "opencode",
+          title: "altimate-code",
           version: "1.0.0",
-          description: "opencode api",
+          description: "altimate-code api",
         },
         openapi: "3.1.1",
       },

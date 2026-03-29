@@ -164,7 +164,9 @@ cd /home/testuser
 mkdir -p /home/testuser/.npm-global
 npm config set prefix /home/testuser/.npm-global
 export PATH="/home/testuser/.npm-global/bin:$PATH"
-npm install -g "altimate-code@$VERSION" --registry "$REGISTRY_URL" 2>&1
+# Install the main package, plus duckdb so at least one peer dependency is
+# resolvable during driver-check tests.
+npm install -g "altimate-code@$VERSION" duckdb --registry "$REGISTRY_URL" 2>&1
 echo ""
 echo "  Installed: $(which altimate 2>/dev/null || echo 'NOT FOUND')"
 echo "  Version: $(altimate --version 2>/dev/null || echo 'FAILED')"

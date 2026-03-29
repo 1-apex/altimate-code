@@ -243,10 +243,14 @@ fi
 
 # 15. No hardcoded CI paths leaked into installed files
 echo "  [15/20] No hardcoded CI paths..."
-# Check for common CI runner paths baked into installed JS bundles
+# Check for common CI runner paths baked into installed JS/JSON files.
+# Exclude compiled binaries (bin/), .node native modules, and .map sourcemaps
+# — Bun's single-file compiler embeds build-machine paths in debug info which
+# are harmless and unavoidable.
 INSTALL_DIR=$(npm root -g 2>/dev/null || echo "")
 if [ -n "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR/altimate-code" ]; then
-  if grep -rq '/home/runner/work\|/github/workspace' "$INSTALL_DIR/altimate-code/" 2>/dev/null; then
+  if grep -rq --include='*.js' --include='*.json' --include='*.mjs' --include='*.cjs' \
+    '/home/runner/work\|/github/workspace' "$INSTALL_DIR/altimate-code/" 2>/dev/null; then
     echo "  FAIL: hardcoded CI paths found in installed package"
     FAIL_COUNT=$((FAIL_COUNT + 1))
   else

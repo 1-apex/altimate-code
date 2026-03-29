@@ -6,7 +6,7 @@ import { git } from "@/util/git"
 
 export const PrCommand = cmd({
   command: "pr <number>",
-  describe: "fetch and checkout a GitHub PR branch, then run opencode",
+  describe: "fetch and checkout a GitHub PR branch, then run altimate-code",
   builder: (yargs) =>
     yargs.positional("number", {
       type: "number",
