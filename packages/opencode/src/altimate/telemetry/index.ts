@@ -349,6 +349,9 @@ export namespace Telemetry {
         skill_name: string
         skill_source: "builtin" | "global" | "project"
         duration_ms: number
+        // altimate_change start — skill trigger classification for discovery analytics
+        trigger: "user_command" | "llm_selected" | "auto_suggested" | "unknown"
+        // altimate_change end
         has_followups: boolean
         followup_count: number
       }
@@ -387,6 +390,15 @@ export namespace Telemetry {
         source: "cli" | "tui"
       }
     // altimate_change end
+    // altimate_change start — plan refinement telemetry event
+    | {
+        type: "plan_revision"
+        timestamp: number
+        session_id: string
+        revision_number: number
+        action: "refine" | "approve" | "reject" | "cap_reached"
+      }
+    // altimate_change end
     | {
         type: "sql_execute_failure"
         timestamp: number
@@ -397,6 +409,16 @@ export namespace Telemetry {
         masked_sql: string
         duration_ms: number
       }
+    // altimate_change start — feature_suggestion event for post-connect and progressive disclosure tracking
+    | {
+        type: "feature_suggestion"
+        timestamp: number
+        session_id: string
+        suggestion_type: "post_warehouse_connect" | "dbt_detected" | "schema_not_indexed" | "progressive_disclosure"
+        suggestions_shown: string[]
+        warehouse_type?: string
+      }
+    // altimate_change end
     | {
         type: "core_failure"
         timestamp: number
@@ -633,6 +655,16 @@ export namespace Telemetry {
     }
     return "standard"
   }
+
+  // altimate_change start — classify how a skill was triggered for discovery analytics
+  export function classifySkillTrigger(extra?: { [key: string]: any }): "user_command" | "llm_selected" | "auto_suggested" | "unknown" {
+    if (!extra) return "llm_selected"
+    if (extra.trigger === "user_command") return "user_command"
+    if (extra.trigger === "auto_suggested") return "auto_suggested"
+    if (extra.trigger === "llm_selected") return "llm_selected"
+    return "llm_selected"
+  }
+  // altimate_change end
 
   export function bucketCount(n: number): string {
     if (n <= 0) return "0"

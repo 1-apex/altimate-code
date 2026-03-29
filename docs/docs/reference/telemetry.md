@@ -33,7 +33,9 @@ We collect the following categories of events:
 | `error_recovered` | Successful recovery from a transient error (error type, strategy, attempt count) |
 | `mcp_server_census` | MCP server capabilities after connect (tool and resource counts, but no tool names) |
 | `context_overflow_recovered` | Context overflow is handled (strategy) |
-| `skill_used` | A skill is loaded (skill name and source — `builtin`, `global`, or `project` — no skill content) |
+| `skill_used` | A skill is loaded (skill name, source — `builtin`, `global`, or `project`, and trigger — `user`, `auto`, or `suggestion` — no skill content) |
+| `plan_revision` | A plan revision occurs in Plan mode (revision_number, action: `refine`, `approve`, `reject`, or `cap_reached`) |
+| `feature_suggestion` | A post-connection feature suggestion is shown (suggestion_type, suggestions_shown, warehouse_type — no user input) |
 | `sql_execute_failure` | A SQL execution fails (warehouse type, query type, error message, PII-masked SQL — no raw values) |
 | `core_failure` | An internal tool error occurs (tool name, category, error class, truncated error message, PII-safe input signature, and optionally masked arguments — no raw values or credentials) |
 | `first_launch` | Fired once on first CLI run after installation. Contains version and is_upgrade flag. No PII. |

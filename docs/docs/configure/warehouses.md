@@ -365,3 +365,16 @@ Testing connection to prod-snowflake (snowflake)...
   Warehouse: COMPUTE_WH
   Database: ANALYTICS
 ```
+
+## Post-Connection Suggestions
+
+After you successfully connect a warehouse, altimate suggests next steps to help you get the most out of your connection. Suggestions are shown progressively based on what you've already done:
+
+1. **Index your schemas** — populate the schema cache for autocomplete and context-aware analysis
+2. **Run SQL analysis** — scan your query history for anti-patterns and optimization opportunities
+3. **Inspect schema structure** — review tables, columns, and relationships
+4. **Check lineage** — trace column-level data flow across your models
+
+If altimate detects a dbt project in your workspace, it also recommends relevant dbt skills (`/dbt-develop`, `/dbt-troubleshoot`, `/dbt-analyze`).
+
+Each suggestion is shown **once per session** — dismissing or acting on a suggestion removes it from the queue. You can also run a suggested action later via its corresponding tool or slash command.

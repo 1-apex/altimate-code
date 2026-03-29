@@ -3,6 +3,9 @@ import { Tool } from "../../tool/tool"
 import { Dispatcher } from "../native"
 import type { Telemetry } from "../telemetry"
 import type { SqlAnalyzeResult } from "../native/types"
+// altimate_change start — progressive disclosure suggestions
+import { PostConnectSuggestions } from "./post-connect-suggestions"
+// altimate_change end
 
 export const SqlAnalyzeTool = Tool.define("sql_analyze", {
   description:
@@ -39,6 +42,19 @@ export const SqlAnalyzeTool = Tool.define("sql_analyze", {
         category: issue.rule ?? issue.type,
       }))
       // altimate_change end
+
+      // altimate_change start — progressive disclosure suggestions
+      let output = formatAnalysis(result)
+      const suggestion = PostConnectSuggestions.getProgressiveSuggestion("sql_analyze")
+      if (suggestion) {
+        output += "\n\n" + suggestion
+        PostConnectSuggestions.trackSuggestions({
+          suggestionType: "progressive_disclosure",
+          suggestionsShown: ["schema_inspect"],
+          warehouseType: "unknown",
+        })
+      }
+      // altimate_change end
       return {
         title: `Analyze: ${result.error ? "ERROR" : `${result.issue_count} issue${result.issue_count !== 1 ? "s" : ""}`} [${result.confidence}]`,
         metadata: {
@@ -50,7 +66,7 @@ export const SqlAnalyzeTool = Tool.define("sql_analyze", {
           ...(result.error && { error: result.error }),
           ...(findings.length > 0 && { findings }),
         },
-        output: formatAnalysis(result),
+        output,
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

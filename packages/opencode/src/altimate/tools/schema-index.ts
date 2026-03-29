@@ -2,6 +2,9 @@ import z from "zod"
 import { Tool } from "../../tool/tool"
 import { Dispatcher } from "../native"
 import type { SchemaIndexResult } from "../native/types"
+// altimate_change start — progressive disclosure suggestions
+import { PostConnectSuggestions } from "./post-connect-suggestions"
+// altimate_change end
 
 export const SchemaIndexTool = Tool.define("schema_index", {
   description:
@@ -15,6 +18,18 @@ export const SchemaIndexTool = Tool.define("schema_index", {
         warehouse: args.warehouse,
       })
 
+      // altimate_change start — progressive disclosure suggestions
+      let output = formatIndexResult(result)
+      const suggestion = PostConnectSuggestions.getProgressiveSuggestion("schema_index")
+      if (suggestion) {
+        output += "\n\n" + suggestion
+        PostConnectSuggestions.trackSuggestions({
+          suggestionType: "progressive_disclosure",
+          suggestionsShown: ["sql_analyze", "schema_inspect", "lineage_check"],
+          warehouseType: result.type,
+        })
+      }
+      // altimate_change end
       return {
         title: `Schema Indexed: ${result.warehouse}`,
         metadata: {
@@ -22,7 +37,7 @@ export const SchemaIndexTool = Tool.define("schema_index", {
           tables: result.tables_indexed,
           columns: result.columns_indexed,
         },
-        output: formatIndexResult(result),
+        output,
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

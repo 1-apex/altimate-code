@@ -506,6 +506,23 @@ export const ProjectScanTool = Tool.define("project_scan", {
       if (dbtProject.hasPackages) {
         lines.push(`  ✓ packages.yml or dependencies.yml found`)
       }
+      // altimate_change start — dbt auto-detection skill suggestions
+      lines.push("")
+      lines.push(`  Recommended skills:`)
+      lines.push(`  - /dbt-develop — Build and modify dbt models with AI assistance`)
+      lines.push(`  - /dbt-troubleshoot — Debug failing dbt models and tests`)
+      lines.push(`  - /dbt-analyze — Analyze dbt project structure and dependencies`)
+
+      try {
+        const { PostConnectSuggestions } = await import("./post-connect-suggestions")
+        PostConnectSuggestions.trackSuggestions({
+          suggestionType: "dbt_detected",
+          suggestionsShown: ["dbt-develop", "dbt-troubleshoot", "dbt-analyze"],
+        })
+      } catch {
+        // Telemetry must never break scan output
+      }
+      // altimate_change end
     } else {
       lines.push("✗ No dbt_project.yml found")
     }

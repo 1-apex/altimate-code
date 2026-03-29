@@ -142,6 +142,51 @@ altimate --agent plan
 
 Plan mode restricts the agent to reading files and editing plan files only. No SQL, no bash, no file modifications. Use this to outline an approach before switching to builder to execute it.
 
+### Two-step workflow
+
+Plan mode uses a two-step approach to keep you in control:
+
+1. **Outline** — The agent produces a short outline (3-5 bullet points) summarizing what it intends to do.
+2. **Expand** — After you confirm, the agent expands the outline into a full, detailed plan.
+
+This prevents wasted effort on plans that are heading in the wrong direction.
+
+### Refinement loop
+
+You don't have to start over if the plan isn't quite right. After the agent presents its outline or full plan, you can:
+
+- **Approve** — Accept the plan as-is (e.g., "looks good", "approved", "let's go").
+- **Refine** — Edit specific parts and ask the agent to revise (e.g., "change step 3 to use incremental instead of table").
+- **Reject** — Discard the plan entirely (e.g., "scrap this", "start over", "reject").
+
+Refinements are capped at **5 revisions per session** to avoid endless loops. After the cap is reached, the agent asks you to approve or reject the current version.
+
+### Example conversation
+
+```
+You: Plan a migration of our raw_events table from a view to an incremental model
+
+Plan: Here's my proposed approach:
+  • Inspect the current raw_events view and its downstream dependencies
+  • Design an incremental model with a timestamp-based strategy
+  • Add schema tests for the new model
+  • Create a cutover checklist for swapping the view to the model
+  • Update the dbt DAG documentation
+
+You: Change the second bullet — use insert_overwrite instead of timestamp-based
+
+Plan: Updated outline:
+  • Inspect the current raw_events view and its downstream dependencies
+  • Design an incremental model with an insert_overwrite strategy
+  • Add schema tests for the new model
+  • Create a cutover checklist for swapping the view to the model
+  • Update the dbt DAG documentation
+
+You: Approved
+
+Plan: [expands into a full detailed plan]
+```
+
 ---
 
 ## SQL Write Access Control

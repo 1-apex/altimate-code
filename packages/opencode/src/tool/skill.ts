@@ -147,7 +147,7 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       const followups = SkillFollowups.format(skill.name)
       // altimate_change end
 
-      // altimate_change start — telemetry instrumentation for skill loading
+      // altimate_change start — telemetry instrumentation for skill loading with trigger classification
       try {
         Telemetry.track({
           type: "skill_used",
@@ -157,6 +157,7 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
           skill_name: skill.name,
           skill_source: classifySkillSource(skill.location),
           duration_ms: Date.now() - startTime,
+          trigger: Telemetry.classifySkillTrigger(ctx.extra),
           has_followups: followups.length > 0,
           followup_count: SkillFollowups.get(skill.name).length,
         })

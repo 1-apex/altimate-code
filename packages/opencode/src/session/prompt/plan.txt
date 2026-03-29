@@ -20,6 +20,22 @@ Ask the user clarifying questions or ask for their opinion when weighing tradeof
 
 ---
 
+## Two-Step Plan Approach
+
+When creating a plan:
+1. FIRST, present a brief outline (3-5 bullet points) summarizing your proposed approach
+2. Ask the user if this direction looks right before expanding
+3. If the user wants changes, refine the outline based on their feedback
+4. Only write the full detailed plan to .opencode/plans/ after the user confirms the approach
+
+When the user provides feedback on a plan you have already written:
+1. Read the existing plan file
+2. Incorporate their feedback into the plan
+3. Update the plan file with revisions
+4. Summarize what changed
+
+---
+
 ## Important
 
 The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system. This supersedes any other instructions you have received.

@@ -5,6 +5,9 @@ import type { SqlExecuteResult } from "../native/types"
 // altimate_change start - SQL write access control
 import { classifyAndCheck } from "./sql-classify"
 // altimate_change end
+// altimate_change start — progressive disclosure suggestions
+import { PostConnectSuggestions } from "./post-connect-suggestions"
+// altimate_change end
 
 export const SqlExecuteTool = Tool.define("sql_execute", {
   description: "Execute SQL against a connected data warehouse. Returns results as a formatted table.",
@@ -37,7 +40,18 @@ export const SqlExecuteTool = Tool.define("sql_execute", {
         limit: args.limit,
       })
 
-      const output = formatResult(result)
+      let output = formatResult(result)
+      // altimate_change start — progressive disclosure suggestions
+      const suggestion = PostConnectSuggestions.getProgressiveSuggestion("sql_execute")
+      if (suggestion) {
+        output += "\n\n" + suggestion
+        PostConnectSuggestions.trackSuggestions({
+          suggestionType: "progressive_disclosure",
+          suggestionsShown: ["sql_analyze"],
+          warehouseType: args.warehouse ?? "default",
+        })
+      }
+      // altimate_change end
       return {
         title: `SQL: ${args.query.slice(0, 60)}${args.query.length > 60 ? "..." : ""}`,
         metadata: { rowCount: result.row_count, truncated: result.truncated },

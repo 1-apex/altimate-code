@@ -2,6 +2,9 @@ import z from "zod"
 import { Tool } from "../../tool/tool"
 import { Dispatcher } from "../native"
 import type { SchemaInspectResult } from "../native/types"
+// altimate_change start — progressive disclosure suggestions
+import { PostConnectSuggestions } from "./post-connect-suggestions"
+// altimate_change end
 
 export const SchemaInspectTool = Tool.define("schema_inspect", {
   description: "Inspect database schema — list columns, types, and constraints for a table.",
@@ -18,10 +21,22 @@ export const SchemaInspectTool = Tool.define("schema_inspect", {
         warehouse: args.warehouse,
       })
 
+      // altimate_change start — progressive disclosure suggestions
+      let output = formatSchema(result)
+      const suggestion = PostConnectSuggestions.getProgressiveSuggestion("schema_inspect")
+      if (suggestion) {
+        output += "\n\n" + suggestion
+        PostConnectSuggestions.trackSuggestions({
+          suggestionType: "progressive_disclosure",
+          suggestionsShown: ["lineage_check"],
+          warehouseType: args.warehouse ?? "unknown",
+        })
+      }
+      // altimate_change end
       return {
         title: `Schema: ${result.table}`,
         metadata: { columnCount: result.columns.length, rowCount: result.row_count },
-        output: formatSchema(result),
+        output,
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

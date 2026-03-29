@@ -1,6 +1,10 @@
 import z from "zod"
 import { Tool } from "../../tool/tool"
 import { Dispatcher } from "../native"
+// altimate_change start — post-connect feature suggestions
+import { PostConnectSuggestions } from "./post-connect-suggestions"
+import { Telemetry } from "../../telemetry"
+// altimate_change end
 
 export const WarehouseAddTool = Tool.define("warehouse_add", {
   description:
@@ -41,10 +45,78 @@ IMPORTANT: For private key file paths, always use "private_key_path" (not "priva
       })
 
       if (result.success) {
+        // altimate_change start — append post-connect feature suggestions (async, non-blocking)
+        let output = `Successfully added warehouse '${result.name}' (type: ${result.type}).\n\nUse warehouse_test to verify connectivity.`
+
+        // Run suggestion gathering concurrently with a timeout to avoid
+        // adding noticeable latency to the warehouse add response.
+        try {
+          const SUGGESTION_TIMEOUT_MS = 1500
+          const suggestionPromise = (async () => {
+            const [schemaCache, warehouseList, dbtInfo] = await Promise.all([
+              Dispatcher.call("schema.cache_status", {}).catch(() => null),
+              Dispatcher.call("warehouse.list", {}).catch(() => ({ warehouses: [] })),
+              import("./project-scan")
+                .then((m) => m.detectDbtProject(process.cwd()))
+                .catch(() => ({ found: false })),
+            ])
+            const schemaIndexed = (schemaCache?.total_tables ?? 0) > 0
+            const dbtDetected = dbtInfo.found
+
+            const suggestionCtx: PostConnectSuggestions.SuggestionContext = {
+              warehouseType: result.type,
+              schemaIndexed,
+              dbtDetected,
+              connectionCount: warehouseList.warehouses.length,
+              toolsUsedInSession: [],
+            }
+            return { suggestionCtx, schemaIndexed, dbtDetected }
+          })()
+
+          const timeoutPromise = new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), SUGGESTION_TIMEOUT_MS),
+          )
+          const suggestionResult = await Promise.race([suggestionPromise, timeoutPromise])
+
+          if (suggestionResult) {
+            const { suggestionCtx } = suggestionResult
+            output += PostConnectSuggestions.getPostConnectSuggestions(suggestionCtx)
+
+            // Derive suggestions list from the same context to avoid drift
+            const suggestionsShown = ["sql_execute", "sql_analyze", "lineage_check", "schema_detect_pii"]
+            if (!suggestionCtx.schemaIndexed) suggestionsShown.unshift("schema_index")
+            if (suggestionCtx.dbtDetected) suggestionsShown.push("dbt-develop", "dbt-troubleshoot")
+            if (suggestionCtx.connectionCount > 1) suggestionsShown.push("data_diff")
+            PostConnectSuggestions.trackSuggestions({
+              suggestionType: "post_warehouse_connect",
+              suggestionsShown,
+              warehouseType: result.type,
+            })
+          }
+        } catch (e) {
+          // Suggestions must never break the add flow — but track the failure
+          try {
+            Telemetry.track({
+              type: "core_failure",
+              timestamp: Date.now(),
+              session_id: Telemetry.getContext().sessionId || "unknown-session",
+              tool_name: "warehouse_add",
+              tool_category: "warehouse",
+              error_class: "internal",
+              error_message: Telemetry.maskString(e instanceof Error ? e.message : String(e)),
+              input_signature: "post_connect_suggestions",
+              duration_ms: 0,
+            })
+          } catch {
+            // Telemetry itself failed — truly nothing we can do
+          }
+        }
+        // altimate_change end
+
         return {
           title: `Add '${args.name}': OK`,
           metadata: { success: true, name: result.name, type: result.type },
-          output: `Successfully added warehouse '${result.name}' (type: ${result.type}).\n\nUse warehouse_test to verify connectivity.`,
+          output,
         }
       }
 

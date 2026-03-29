@@ -60,7 +60,7 @@ Set up warehouse connections so altimate can query your data platform. You have 
 4. **Offers to configure connections** and walks you through adding and testing each discovered warehouse
 5. **Indexes schemas** to populate the schema cache for autocomplete and context-aware analysis
 
-Once complete, altimate indexes your schemas and detects your tooling, enabling schema-aware autocomplete and context-rich analysis.
+Once complete, altimate indexes your schemas and detects your tooling, enabling schema-aware autocomplete and context-rich analysis. After connecting, you'll see feature suggestions tailored to your warehouse type — such as indexing schemas, running SQL analysis, or checking lineage. These appear progressively and each is shown once per session. See [Post-Connection Suggestions](configure/warehouses.md#post-connection-suggestions) for details.
 
 ### Option B: Manual configuration
 

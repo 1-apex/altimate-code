@@ -195,48 +195,55 @@ describe("telemetry.context", () => {
 // ---------------------------------------------------------------------------
 // 5. Event type completeness — all 33 event types
 // ---------------------------------------------------------------------------
+// Shared event type list — single source of truth for completeness and naming tests
+const ALL_EVENT_TYPES: Telemetry.Event["type"][] = [
+  "session_start",
+  "session_end",
+  "generation",
+  "tool_call",
+  "native_call",
+  "error",
+  "command",
+  "context_overflow_recovered",
+  "compaction_triggered",
+  "tool_outputs_pruned",
+  "auth_login",
+  "auth_logout",
+  "mcp_server_status",
+  "provider_error",
+  "engine_started",
+  "engine_error",
+  "upgrade_attempted",
+  "session_forked",
+  "permission_denied",
+  "doom_loop_detected",
+  "environment_census",
+  "context_utilization",
+  "agent_outcome",
+  "error_recovered",
+  "mcp_server_census",
+  "mcp_discovery",
+  "memory_operation",
+  "memory_injection",
+  "warehouse_connect",
+  "warehouse_query",
+  "warehouse_introspection",
+  "warehouse_discovery",
+  "warehouse_census",
+  "skill_used",
+  "first_launch",
+  "skill_created",
+  "skill_installed",
+  "skill_removed",
+  "plan_revision",
+  "sql_execute_failure",
+  "feature_suggestion",
+  "core_failure",
+]
+
 describe("telemetry.event-types", () => {
   test("all event types are valid", () => {
-    const eventTypes: Telemetry.Event["type"][] = [
-      "session_start",
-      "session_end",
-      "generation",
-      "tool_call",
-      "native_call",
-      "error",
-      "command",
-      "context_overflow_recovered",
-      "compaction_triggered",
-      "tool_outputs_pruned",
-      "auth_login",
-      "auth_logout",
-      "mcp_server_status",
-      "provider_error",
-      "engine_started",
-      "engine_error",
-      "upgrade_attempted",
-      "session_forked",
-      "permission_denied",
-      "doom_loop_detected",
-      "environment_census",
-      "context_utilization",
-      "agent_outcome",
-      "error_recovered",
-      "mcp_server_census",
-      "memory_operation",
-      "memory_injection",
-      "warehouse_connect",
-      "warehouse_query",
-      "warehouse_introspection",
-      "warehouse_discovery",
-      "warehouse_census",
-      "core_failure",
-      "first_launch",
-      "skill_created",
-      "skill_installed",
-      "skill_removed",
-    ]
-    expect(eventTypes.length).toBe(37)
+    expect(ALL_EVENT_TYPES.length).toBe(42)
   })
 })
 
@@ -322,46 +329,7 @@ describe("telemetry.privacy", () => {
 // ---------------------------------------------------------------------------
 describe("telemetry.naming-convention", () => {
   test("all event types use snake_case", () => {
-    const types: Telemetry.Event["type"][] = [
-      "session_start",
-      "session_end",
-      "generation",
-      "tool_call",
-      "native_call",
-      "error",
-      "command",
-      "context_overflow_recovered",
-      "compaction_triggered",
-      "tool_outputs_pruned",
-      "auth_login",
-      "auth_logout",
-      "mcp_server_status",
-      "provider_error",
-      "engine_started",
-      "engine_error",
-      "upgrade_attempted",
-      "session_forked",
-      "permission_denied",
-      "doom_loop_detected",
-      "environment_census",
-      "context_utilization",
-      "agent_outcome",
-      "error_recovered",
-      "mcp_server_census",
-      "memory_operation",
-      "memory_injection",
-      "warehouse_connect",
-      "warehouse_query",
-      "warehouse_introspection",
-      "warehouse_discovery",
-      "warehouse_census",
-      "core_failure",
-      "first_launch",
-      "skill_created",
-      "skill_installed",
-      "skill_removed",
-    ]
-    for (const t of types) {
+    for (const t of ALL_EVENT_TYPES) {
       expect(t).toMatch(/^[a-z][a-z0-9_]*$/)
     }
   })
