@@ -151,7 +151,7 @@ Each mode has scoped permissions, tool access, and SQL write-access control.
 
 ## Supported Warehouses
 
-Snowflake · BigQuery · Databricks · PostgreSQL · Redshift · DuckDB · MySQL · SQL Server · Oracle · SQLite
+Snowflake · BigQuery · Databricks · PostgreSQL · Redshift · ClickHouse · DuckDB · MySQL · SQL Server · Oracle · SQLite · MongoDB
 
 First-class support with schema indexing, query execution, and metadata introspection. SSH tunneling available for secure connections.
 

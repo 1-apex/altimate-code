@@ -25,6 +25,7 @@ const ADAPTER_TYPE_MAP: Record<string, string> = {
   sqlite: "sqlite",
   spark: "databricks",
   trino: "postgres", // wire-compatible
+  clickhouse: "clickhouse",
 }
 
 /** Map dbt config keys to altimate config keys. */
@@ -76,10 +77,7 @@ function resolveEnvVarsDeep(obj: Record<string, unknown>): Record<string, unknow
 }
 
 /** Convert a dbt output config to an altimate ConnectionConfig. */
-function mapConfig(
-  dbtType: string,
-  dbtConfig: Record<string, unknown>,
-): ConnectionConfig {
+function mapConfig(dbtType: string, dbtConfig: Record<string, unknown>): ConnectionConfig {
   const type = ADAPTER_TYPE_MAP[dbtType] ?? dbtType
   const config: ConnectionConfig = { type }
 
@@ -102,11 +100,8 @@ function mapConfig(
  *
  * @param profilesPath - Path to profiles.yml. Defaults to ~/.dbt/profiles.yml
  */
-export async function parseDbtProfiles(
-  profilesPath?: string,
-): Promise<DbtProfileConnection[]> {
-  const resolvedPath =
-    profilesPath ?? path.join(os.homedir(), ".dbt", "profiles.yml")
+export async function parseDbtProfiles(profilesPath?: string): Promise<DbtProfileConnection[]> {
+  const resolvedPath = profilesPath ?? path.join(os.homedir(), ".dbt", "profiles.yml")
 
   if (!fs.existsSync(resolvedPath)) {
     return []
@@ -150,9 +145,7 @@ export async function parseDbtProfiles(
     const outputs = (profile as Record<string, any>).outputs
     if (!outputs || typeof outputs !== "object") continue
 
-    for (const [outputName, output] of Object.entries(
-      outputs as Record<string, any>,
-    )) {
+    for (const [outputName, output] of Object.entries(outputs as Record<string, any>)) {
       if (!output || typeof output !== "object") continue
       const rawConfig = resolveEnvVarsDeep(output as Record<string, unknown>)
       const dbtType = (rawConfig.type as string) ?? "unknown"
@@ -172,9 +165,7 @@ export async function parseDbtProfiles(
 /**
  * Convert DbtProfileConnection array to a map of ConnectionConfigs.
  */
-export function dbtConnectionsToConfigs(
-  connections: DbtProfileConnection[],
-): Record<string, ConnectionConfig> {
+export function dbtConnectionsToConfigs(connections: DbtProfileConnection[]): Record<string, ConnectionConfig> {
   const result: Record<string, ConnectionConfig> = {}
   for (const conn of connections) {
     result[conn.name] = conn.config as ConnectionConfig

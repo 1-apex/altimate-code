@@ -1,6 +1,6 @@
 # Warehouses
 
-Altimate Code connects to 9 warehouse types. Configure them in `.altimate-code/connections.json` (project-local) or `~/.altimate-code/connections.json` (global).
+Altimate Code connects to 10 warehouse types. Configure them in `.altimate-code/connections.json` (project-local) or `~/.altimate-code/connections.json` (global).
 
 ## Configuration
 
@@ -288,6 +288,66 @@ If you're already authenticated via `gcloud`, omit `credentials_path`:
 !!! info "Server compatibility"
     The MongoDB driver (v6.x) supports MongoDB server versions 3.6 through 8.0, covering all releases from the last 3+ years.
 
+## ClickHouse
+
+```json
+{
+  "clickhouse-prod": {
+    "type": "clickhouse",
+    "host": "localhost",
+    "port": 8123,
+    "database": "analytics",
+    "user": "default",
+    "password": "{env:CLICKHOUSE_PASSWORD}"
+  }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `connection_string` | No | Full URL (alternative to individual fields, e.g. `http://user:pass@host:8123`) |
+| `host` | No | Hostname (default: `localhost`) |
+| `port` | No | HTTP port (default: `8123`) |
+| `database` | No | Database name (default: `default`) |
+| `user` | No | Username (default: `default`) |
+| `password` | No | Password |
+| `protocol` | No | `http` or `https` (default: `http`) |
+| `request_timeout` | No | Request timeout in ms (default: `30000`) |
+| `tls_ca_cert` | No | Path to CA certificate for TLS |
+| `tls_cert` | No | Path to client certificate for mutual TLS |
+| `tls_key` | No | Path to client key for mutual TLS |
+| `clickhouse_settings` | No | Object of ClickHouse server settings |
+
+### ClickHouse Cloud
+
+```json
+{
+  "clickhouse-cloud": {
+    "type": "clickhouse",
+    "host": "abc123.us-east-1.aws.clickhouse.cloud",
+    "port": 8443,
+    "protocol": "https",
+    "user": "default",
+    "password": "{env:CLICKHOUSE_CLOUD_PASSWORD}",
+    "database": "default"
+  }
+}
+```
+
+### Using a connection string
+
+```json
+{
+  "clickhouse-prod": {
+    "type": "clickhouse",
+    "connection_string": "https://default:secret@my-ch.cloud:8443"
+  }
+}
+```
+
+!!! info "Server compatibility"
+    The ClickHouse driver supports ClickHouse server versions 23.3 and later, covering all non-EOL releases. This includes LTS releases 23.8, 24.3, 24.8, and all stable releases through the current version.
+
 ## SQL Server
 
 ```json
@@ -320,7 +380,6 @@ The following databases are not yet natively supported, but workarounds are avai
 
 | Database | Workaround |
 |----------|------------|
-| ClickHouse | Use the bash tool with `clickhouse-client` or `curl` to query directly |
 | Cassandra | Use the bash tool with `cqlsh` to query directly |
 | CockroachDB | PostgreSQL-compatible — use `type: postgres` |
 | TimescaleDB | PostgreSQL extension — use `type: postgres` |
@@ -362,7 +421,7 @@ The `/discover` command can automatically detect warehouse connections from:
 | Source | Detection |
 |--------|-----------|
 | dbt profiles | Parses `~/.dbt/profiles.yml` |
-| Docker containers | Finds running PostgreSQL, MySQL, and SQL Server containers |
+| Docker containers | Finds running PostgreSQL, MySQL, SQL Server, and ClickHouse containers |
 | Environment variables | Scans for `SNOWFLAKE_ACCOUNT`, `PGHOST`, `DATABRICKS_HOST`, etc. |
 
 See [Warehouse Tools](../data-engineering/tools/warehouse-tools.md) for the full list of environment variable signals.
