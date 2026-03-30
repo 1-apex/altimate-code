@@ -809,7 +809,7 @@ export namespace SessionPrompt {
           }
         }
         // altimate_change end — task intent classification
-        // altimate_change end
+        // altimate_change end — session start telemetry
       }
 
       // Ephemerally wrap queued user messages with a reminder to stay on track
@@ -959,7 +959,7 @@ export namespace SessionPrompt {
         pendingError = null
       }
       // altimate_change end — quality signal + tool chain + error fingerprints
-      // altimate_change end
+      // altimate_change end — accumulate session metrics
 
       // altimate_change start — detect plan file creation after tool calls
       if (agent.name === "plan" && !planHasWritten) {

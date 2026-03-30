@@ -211,6 +211,9 @@ If you're already authenticated via `gcloud`, omit `credentials_path`:
 |-------|----------|-------------|
 | `path` | No | Database file path. Omit or use `":memory:"` for in-memory |
 
+!!! note "Concurrent access"
+    DuckDB does not support concurrent write access to the same file. If another process holds a write lock, Altimate Code automatically retries the connection in **read-only** mode so you can still query the data. A clear error message is shown if read-only access also fails.
+
 ## MySQL
 
 ```json
@@ -279,6 +282,9 @@ If you're already authenticated via `gcloud`, omit `credentials_path`:
 !!! note
     MongoDB uses MQL (MongoDB Query Language) instead of SQL. Queries are submitted as JSON objects via the `execute` method. Supported commands: `find`, `aggregate`, `countDocuments`, `distinct`, `insertOne`, `insertMany`, `updateOne`, `updateMany`, `deleteOne`, `deleteMany`, `createIndex`, `listIndexes`, `createCollection`, `dropCollection`, `ping`.
 
+!!! warning "Blocked operators"
+    For safety, aggregate pipelines block `$out` and `$merge` (write stages) and `$function` and `$accumulator` (arbitrary JavaScript execution). Use `find`, `countDocuments`, or safe aggregate stages for read-only analysis.
+
 !!! info "Server compatibility"
     The MongoDB driver (v6.x) supports MongoDB server versions 3.6 through 8.0, covering all releases from the last 3+ years.
 
@@ -307,6 +313,17 @@ If you're already authenticated via `gcloud`, omit `credentials_path`:
 | `driver` | No | ODBC driver name (default: `ODBC Driver 18 for SQL Server`) |
 | `azure_auth` | No | Use Azure AD authentication (default: `false`) |
 | `trust_server_certificate` | No | Trust server certificate without validation (default: `false`) |
+
+## Unsupported Databases
+
+The following databases are not yet natively supported, but workarounds are available:
+
+| Database | Workaround |
+|----------|------------|
+| ClickHouse | Use the bash tool with `clickhouse-client` or `curl` to query directly |
+| Cassandra | Use the bash tool with `cqlsh` to query directly |
+| CockroachDB | PostgreSQL-compatible — use `type: postgres` |
+| TimescaleDB | PostgreSQL extension — use `type: postgres` |
 
 ## SSH Tunneling
 

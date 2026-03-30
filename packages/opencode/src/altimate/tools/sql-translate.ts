@@ -58,8 +58,8 @@ function formatTranslation(result: SqlTranslateResult, originalSql: string): str
 
   const lines: string[] = []
 
-  lines.push(`Source dialect: ${result.source_dialect}`)
-  lines.push(`Target dialect: ${result.target_dialect}`)
+  lines.push(`Source dialect: ${result.source_dialect ?? "unknown"}`)
+  lines.push(`Target dialect: ${result.target_dialect ?? "unknown"}`)
   lines.push("")
 
   lines.push("--- Original SQL ---")

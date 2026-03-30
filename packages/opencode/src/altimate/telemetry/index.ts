@@ -421,7 +421,7 @@ export namespace Telemetry {
         type: "feature_suggestion"
         timestamp: number
         session_id: string
-        suggestion_type: "post_warehouse_connect" | "dbt_detected" | "schema_not_indexed" | "progressive_disclosure"
+        suggestion_type: "post_warehouse_connect" | "dbt_detected" | "progressive_disclosure"
         suggestions_shown: string[]
         warehouse_type?: string
       }
@@ -870,7 +870,7 @@ export namespace Telemetry {
     if (extra.trigger === "user_command") return "user_command"
     if (extra.trigger === "auto_suggested") return "auto_suggested"
     if (extra.trigger === "llm_selected") return "llm_selected"
-    return "llm_selected"
+    return "unknown"
   }
   // altimate_change end
 

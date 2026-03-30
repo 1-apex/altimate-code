@@ -21,6 +21,7 @@ export const DbtManifestTool = Tool.define("dbt_manifest", {
           test_count: result.test_count,
           snapshot_count: result.snapshot_count,
           seed_count: result.seed_count,
+          ...((result as any).error && { error: (result as any).error }),
         },
         output: formatManifest(result),
       }
@@ -58,7 +59,7 @@ function formatManifest(result: DbtManifestResult): string {
       const colsArr = model.columns ?? []
       const deps = depsArr.length > 0 ? depsArr.map((d) => d.split(".").pop()).join(", ") : "-"
       const cols = colsArr.length > 0 ? colsArr.map((c) => c.name).join(", ") : "-"
-      lines.push(`${model.name} | ${model.schema_name ?? "-"} | ${model.materialized ?? "-"} | ${deps} | ${cols}`)
+      lines.push(`${model.name ?? "-"} | ${model.schema_name ?? "-"} | ${model.materialized ?? "-"} | ${deps} | ${cols}`)
     }
   }
 
@@ -70,7 +71,7 @@ function formatManifest(result: DbtManifestResult): string {
     for (const source of sources) {
       const sourceCols = source.columns ?? []
       const cols = sourceCols.length > 0 ? sourceCols.map((c) => c.name).join(", ") : "-"
-      lines.push(`${source.source_name} | ${source.name} | ${source.schema_name ?? "-"} | ${cols}`)
+      lines.push(`${source.source_name ?? "-"} | ${source.name ?? "-"} | ${source.schema_name ?? "-"} | ${cols}`)
     }
   }
 
