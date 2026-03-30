@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
 import { EditTool } from "../../src/tool/edit"
+import { buildNotFoundMessage, replace } from "../../src/tool/edit"
 import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 import { FileTime } from "../../src/file/time"
@@ -632,6 +633,65 @@ describe("tool.edit", () => {
       })
       expect(output).toBe(normalize(blockNew + "\n" + blockNew + "\n", "\r\n"))
       expectCrlf(output)
+    })
+  })
+
+  describe("buildNotFoundMessage", () => {
+    test("returns empty/whitespace message for blank oldString", () => {
+      const msg = buildNotFoundMessage("hello world", "   \n  ")
+      expect(msg).toContain("empty or whitespace-only")
+    })
+
+    test("returns not-found message when no similar line exists", () => {
+      const content = "function foo() {\n  return 1\n}"
+      const msg = buildNotFoundMessage(content, "zzzzCompletely_unrelated_string_12345")
+      expect(msg).toContain("was not found anywhere")
+      expect(msg).toContain("Re-read the file")
+    })
+
+    test("finds exact match and shows snippet", () => {
+      const content = "line one\nconst a = 1;\nline three\nline four"
+      const msg = buildNotFoundMessage(content, "const a = 1;\nconst b = 2;")
+      expect(msg).toContain("similar line was found at line 2")
+      expect(msg).toContain("const a = 1;")
+    })
+
+    test("prefers exact equality over substring match on short lines", () => {
+      // "const" is a substring of "const a = 1;" but should not win over exact match
+      const content = "const\nfoo bar\nconst a = 1;\nmore stuff"
+      const msg = buildNotFoundMessage(content, "const a = 1;\nconst b = 2;")
+      // Should find line 3 (exact match of first line) not line 1 (short substring "const")
+      expect(msg).toContain("similar line was found at line 3")
+    })
+
+    test("finds Levenshtein-similar line", () => {
+      const content = "function foo() {\n  return 42\n}\nfunction bar() {\n  return 99\n}"
+      // Slightly misspelled — "rreturn" instead of "return"
+      const msg = buildNotFoundMessage(content, "  rreturn 42")
+      expect(msg).toContain("similar line was found")
+      expect(msg).toContain("return 42")
+    })
+
+    test("skips very short lines to avoid false matches", () => {
+      const content = "}\n{\na\nconst realTarget = true"
+      const msg = buildNotFoundMessage(content, "const realTarget = false")
+      expect(msg).toContain("similar line was found at line 4")
+    })
+  })
+
+  describe("replace error messages", () => {
+    test("shows nearest match when oldString not found", () => {
+      const content = "function hello() {\n  return 'world'\n}"
+      expect(() => replace(content, "function helo() {", "function hello_world() {")).toThrow(
+        /similar line was found/,
+      )
+    })
+
+    test("shows not-found message when completely unrelated", () => {
+      const content = "function hello() {\n  return 'world'\n}"
+      expect(() => replace(content, "zzz_completely_unrelated_99", "new")).toThrow(
+        /was not found anywhere/,
+      )
     })
   })
 
