@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Integration tests for the 7 telemetry moat signals.
+ * Integration tests for the 7 telemetry signals.
  *
  * These tests verify that events actually fire through real code paths,
  * not just that the type definitions compile or utility functions work.
@@ -739,6 +739,9 @@ describe("Full E2E session simulation", () => {
       provider_id: "anthropic",
       agent: "default",
       project_id: "test",
+      os: "linux",
+      arch: "x64",
+      node_version: "v22.0.0",
     })
 
     // 2. task_classified

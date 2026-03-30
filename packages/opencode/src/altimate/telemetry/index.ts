@@ -9,12 +9,48 @@ import os from "os"
 
 const log = Log.create({ service: "telemetry" })
 
+// altimate_change start — telemetry query reference for Azure App Insights (KQL)
+/**
+ * Telemetry Module — Azure App Insights Integration
+ *
+ * QUERYING TELEMETRY DATA (KQL / Log Analytics):
+ *
+ *   customDimensions  → string fields (tool_name, model_id, provider_id, error_class, os, etc.)
+ *   customMeasurements → numeric fields (tokens_input, cost, duration_ms, etc.)
+ *
+ * Serialization rules (see toAppInsightsEnvelopes):
+ *   - typeof number  → measurements map  (customMeasurements)
+ *   - typeof string  → properties map    (customDimensions)
+ *   - typeof boolean → properties map    (as "true"/"false")
+ *   - typeof object  → properties map    (JSON.stringify)
+ *   - session_id / project_id are lifted into envelope tags, not properties
+ *   - cli_version is injected into every event's properties automatically
+ *
+ * Example KQL:
+ *
+ *   // Token usage per model
+ *   customEvents
+ *   | where name == "generation"
+ *   | extend model = tostring(customDimensions.model_id),
+ *           tokens_in = todouble(customMeasurements.tokens_input),
+ *           tokens_out = todouble(customMeasurements.tokens_output)
+ *   | summarize avg(tokens_in), avg(tokens_out) by model
+ *
+ *   // Error class distribution
+ *   customEvents
+ *   | where name == "core_failure"
+ *   | extend err = tostring(customDimensions.error_class)
+ *   | summarize count() by err
+ */
+// altimate_change end
+
 export namespace Telemetry {
   const FLUSH_INTERVAL_MS = 5_000
   const MAX_BUFFER_SIZE = 200
   const REQUEST_TIMEOUT_MS = 10_000
 
   export type Event =
+    // altimate_change start — add os/arch/node_version for environment segmentation
     | {
         type: "session_start"
         timestamp: number
@@ -23,7 +59,11 @@ export namespace Telemetry {
         provider_id: string
         agent: string
         project_id: string
+        os: string
+        arch: string
+        node_version: string
       }
+    // altimate_change end
     | {
         type: "session_end"
         timestamp: number
@@ -48,6 +88,9 @@ export namespace Telemetry {
         // No nested objects: Azure App Insights custom measures must be top-level numbers.
         tokens_input: number
         tokens_output: number
+        // altimate_change start — total input tokens including cached (for providers like Anthropic that exclude cache from tokens_input)
+        tokens_input_total?: number
+        // altimate_change end
         tokens_reasoning?: number // only for reasoning models
         tokens_cache_read?: number // only when a cached prompt was reused
         tokens_cache_write?: number // only when a new cache entry was written
@@ -432,7 +475,7 @@ export namespace Telemetry {
         session_id: string
         tool_name: string
         tool_category: string
-        error_class: "parse_error" | "connection" | "timeout" | "validation" | "internal" | "permission" | "http_error" | "unknown"
+        error_class: "parse_error" | "connection" | "timeout" | "validation" | "internal" | "permission" | "http_error" | "file_not_found" | "edit_mismatch" | "not_configured" | "resource_exhausted" | "unknown"
         error_message: string
         input_signature: string
         masked_args?: string
@@ -678,12 +721,44 @@ export namespace Telemetry {
         "sasl",
         "scram",
         "password must be",
-        "driver not installed",
-        "not found. available:",
-        "no warehouse configured",
-        "unsupported database type",
       ],
     },
+    // altimate_change start — split not_configured out of connection for clearer triage
+    {
+      class: "not_configured",
+      keywords: [
+        "no warehouse configured",
+        "driver not installed",
+        "not found. available:",
+        "unsupported database type",
+        "warehouse not configured",
+        "connection not configured",
+      ],
+    },
+    // altimate_change end
+    // altimate_change start — file_not_found class for file system errors
+    {
+      class: "file_not_found",
+      keywords: [
+        "file not found",
+        "no such file",
+        "enoent",
+        "directory not found",
+        "path not found",
+        "file does not exist",
+      ],
+    },
+    // altimate_change end
+    // altimate_change start — edit_mismatch class for edit tool failures
+    {
+      class: "edit_mismatch",
+      keywords: [
+        "could not find oldstring",
+        "no changes to apply",
+        "oldstring and newstring are identical",
+      ],
+    },
+    // altimate_change end
     { class: "timeout", keywords: ["timeout", "etimedout", "bridge timeout", "timed out"] },
     { class: "permission", keywords: ["permission", "access denied", "permission denied", "unauthorized", "forbidden", "authentication"] },
     {
@@ -700,6 +775,19 @@ export namespace Telemetry {
       ],
     },
     { class: "internal", keywords: ["internal", "assertion"] },
+    // altimate_change start — resource_exhausted class for OOM/quota errors
+    {
+      class: "resource_exhausted",
+      keywords: [
+        "out of memory",
+        "resource limit",
+        "quota exceeded",
+        "disk i/o",
+        "enomem",
+        "heap out of memory",
+      ],
+    },
+    // altimate_change end
     {
       class: "http_error",
       keywords: ["status code: 4", "status code: 5", "request failed with status"],

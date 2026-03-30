@@ -784,6 +784,9 @@ export namespace SessionPrompt {
           provider_id: model.providerID,
           agent: lastUser.agent,
           project_id: Instance.project?.id ?? "",
+          os: process.platform,
+          arch: process.arch,
+          node_version: process.version,
         })
         // altimate_change start — task intent classification (keyword/regex, zero LLM cost)
         const userMsg = msgs.find((m) => m.info.id === lastUser!.id)

@@ -109,6 +109,9 @@ describe("telemetry.track", () => {
         provider_id: "test-provider",
         agent: "test-agent",
         project_id: "test-project",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
     }).not.toThrow()
   })
@@ -150,6 +153,9 @@ describe("telemetry.track", () => {
         provider_id: "p",
         agent: "a",
         project_id: "x",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
     } finally {
       process.env.ALTIMATE_TELEMETRY_DISABLED = origEnv
@@ -368,6 +374,9 @@ describe("telemetry.parseConnectionString (indirect)", () => {
         provider_id: "p1",
         agent: "a1",
         project_id: "proj1",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -405,6 +414,9 @@ describe("telemetry.parseConnectionString (indirect)", () => {
         provider_id: "p1",
         agent: "a1",
         project_id: "proj1",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -444,6 +456,9 @@ describe("telemetry.parseConnectionString (indirect)", () => {
         provider_id: "p1",
         agent: "a1",
         project_id: "proj1",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -480,6 +495,9 @@ describe("telemetry.parseConnectionString (indirect)", () => {
         provider_id: "p1",
         agent: "a1",
         project_id: "proj1",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -546,6 +564,9 @@ describe("telemetry.toAppInsightsEnvelopes (indirect)", () => {
         provider_id: "anthropic",
         agent: "builder",
         project_id: "proj-xyz",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -676,6 +697,9 @@ describe("telemetry.toAppInsightsEnvelopes (indirect)", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -720,6 +744,9 @@ describe("telemetry.flush", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -755,6 +782,9 @@ describe("telemetry.flush", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -794,6 +824,9 @@ describe("telemetry.flush", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       // First flush — network error, events re-added to buffer
@@ -841,6 +874,9 @@ describe("telemetry.flush", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -878,6 +914,9 @@ describe("telemetry.flush", () => {
           provider_id: "p",
           agent: "a",
           project_id: "proj",
+          os: "linux",
+          arch: "x64",
+          node_version: "v22.0.0",
         })
       }
 
@@ -902,6 +941,9 @@ describe("telemetry.flush", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
       await Telemetry.flush()
 
@@ -951,6 +993,9 @@ describe("telemetry.shutdown", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       // shutdown should trigger a flush
@@ -986,6 +1031,9 @@ describe("telemetry.shutdown", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.shutdown()
@@ -1005,6 +1053,9 @@ describe("telemetry.shutdown", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
       let fetchCountBefore = fetchMock.mock.calls.length
       await Telemetry.flush()
@@ -1137,6 +1188,9 @@ describe("telemetry.buffer overflow", () => {
           provider_id: "p",
           agent: "a",
           project_id: "proj",
+          os: "linux",
+          arch: "x64",
+          node_version: "v22.0.0",
         })
       }
 
@@ -1189,6 +1243,9 @@ describe("telemetry.init with enabled telemetry", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -1225,6 +1282,9 @@ describe("telemetry.init with enabled telemetry", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -1260,6 +1320,9 @@ describe("telemetry.init with enabled telemetry", () => {
         provider_id: "p",
         agent: "a",
         project_id: "proj",
+        os: "linux",
+        arch: "x64",
+        node_version: "v22.0.0",
       })
 
       await Telemetry.flush()
@@ -1509,14 +1572,49 @@ describe("telemetry.classifyError", () => {
     // altimate_change start — expanded connection patterns
     expect(Telemetry.classifyError("SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string")).toBe("connection")
     expect(Telemetry.classifyError("password must be a string")).toBe("connection")
-    expect(Telemetry.classifyError("PostgreSQL driver not installed. Run: npm install pg")).toBe("connection")
-    expect(Telemetry.classifyError("Error: Connection mydb not found. Available: (none)")).toBe("connection")
-    expect(Telemetry.classifyError("No warehouse configured. Use warehouse.add")).toBe("connection")
-    expect(Telemetry.classifyError("Unsupported database type: clickhouse")).toBe("connection")
     expect(Telemetry.classifyError("Connection reset by peer")).toBe("connection")
     expect(Telemetry.classifyError("Connection closed unexpectedly")).toBe("connection")
     // altimate_change end
   })
+
+  // altimate_change start — not_configured class (split from connection for clearer triage)
+  test("classifies not_configured errors", () => {
+    expect(Telemetry.classifyError("PostgreSQL driver not installed. Run: npm install pg")).toBe("not_configured")
+    expect(Telemetry.classifyError("Error: Connection mydb not found. Available: (none)")).toBe("not_configured")
+    expect(Telemetry.classifyError("No warehouse configured. Use warehouse.add")).toBe("not_configured")
+    expect(Telemetry.classifyError("Unsupported database type: clickhouse")).toBe("not_configured")
+    expect(Telemetry.classifyError("Snowflake driver not installed. Run: npm install snowflake-sdk")).toBe("not_configured")
+    expect(Telemetry.classifyError("Warehouse not configured for this project")).toBe("not_configured")
+    expect(Telemetry.classifyError("Connection not configured")).toBe("not_configured")
+  })
+  // altimate_change end
+
+  // altimate_change start — file_not_found class for file system errors
+  test("classifies file_not_found errors", () => {
+    expect(Telemetry.classifyError("File not found: /path/to/model.sql")).toBe("file_not_found")
+    expect(Telemetry.classifyError("No such file or directory")).toBe("file_not_found")
+    expect(Telemetry.classifyError("ENOENT: /missing/file.ts")).toBe("file_not_found")
+    expect(Telemetry.classifyError("Directory not found: /src/models")).toBe("file_not_found")
+    expect(Telemetry.classifyError("File does not exist: schema.yml")).toBe("file_not_found")
+  })
+  // altimate_change end
+
+  // altimate_change start — edit_mismatch class for edit tool failures
+  test("classifies edit_mismatch errors", () => {
+    expect(Telemetry.classifyError("Could not find oldString in the file /path/to/file.ts")).toBe("edit_mismatch")
+    expect(Telemetry.classifyError("No changes to apply: oldString and newString are identical")).toBe("edit_mismatch")
+    expect(Telemetry.classifyError("oldString and newString are identical")).toBe("edit_mismatch")
+  })
+  // altimate_change end
+
+  // altimate_change start — resource_exhausted class for OOM/quota errors
+  test("classifies resource_exhausted errors", () => {
+    expect(Telemetry.classifyError("JavaScript heap out of memory")).toBe("resource_exhausted")
+    expect(Telemetry.classifyError("quota exceeded for user")).toBe("resource_exhausted")
+    expect(Telemetry.classifyError("ENOMEM: not enough memory")).toBe("resource_exhausted")
+    expect(Telemetry.classifyError("disk I/O error on cache")).toBe("resource_exhausted")
+  })
+  // altimate_change end
 
   test("classifies timeout errors", () => {
     expect(Telemetry.classifyError("Request timeout after 30s")).toBe("timeout")
