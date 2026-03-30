@@ -60,17 +60,25 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
       client = createClient(clientConfig)
     },
 
-    async execute(sql: string, limit?: number, binds?: any[]): Promise<ConnectorResult> {
-      if (binds && binds.length > 0) {
-        throw new Error("ClickHouse driver does not support parameterized binds — use ClickHouse query parameters instead")
+    async execute(sql: string, limit?: number, _binds?: any[]): Promise<ConnectorResult> {
+      if (!client) {
+        throw new Error("ClickHouse client not connected — call connect() first")
       }
       const effectiveLimit = limit === undefined ? 1000 : limit
       let query = sql
+
+      // Strip string literals, then comments, for accurate SQL heuristic checks.
+      // This prevents comment-like content inside strings from fooling detection,
+      // and ensures leading/trailing comments don't hide keywords.
+      const sqlCleaned = sql
+        .replace(/'(?:[^'\\]|\\.|\'{2})*'/g, "") // strip single-quoted strings (handles \' and '' escaping)
+        .replace(/--[^\n]*/g, "") // strip line comments
+        .replace(/\/\*[\s\S]*?\*\//g, "") // strip block comments
+
       // Only SELECT and WITH...SELECT support LIMIT — SHOW/DESCRIBE/EXPLAIN/EXISTS do not
-      const supportsLimit = /^\s*(SELECT|WITH)\b/i.test(sql)
+      const supportsLimit = /^\s*(SELECT|WITH)\b/i.test(sqlCleaned)
       const isDDL =
-        /^\s*(INSERT|CREATE|DROP|ALTER|TRUNCATE|RENAME|ATTACH|DETACH|OPTIMIZE|SYSTEM|SET|USE|GRANT|REVOKE)\b/i.test(sql)
-      const hasDML = /\b(INSERT|CREATE|DROP|ALTER|TRUNCATE|RENAME|ATTACH|DETACH|OPTIMIZE|SYSTEM)\b/i.test(sql)
+        /^\s*(INSERT|CREATE|DROP|ALTER|TRUNCATE|RENAME|ATTACH|DETACH|OPTIMIZE|SYSTEM|SET|USE|GRANT|REVOKE)\b/i.test(sqlCleaned)
 
       // DDL/DML: use client.command() — no result set expected
       if (isDDL) {
@@ -79,9 +87,9 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
       }
 
       // Read queries: use client.query() with JSONEachRow format
-      // Only append LIMIT for SELECT/WITH queries (not SHOW/DESCRIBE/EXPLAIN/EXISTS)
-      if (supportsLimit && !hasDML && effectiveLimit > 0 && !/\bLIMIT\b/i.test(sql)) {
-        query = `${sql.replace(/;\s*$/, "")} LIMIT ${effectiveLimit + 1}`
+      // Only append LIMIT for SELECT/WITH queries that don't already have one.
+      if (supportsLimit && effectiveLimit > 0 && !/\bLIMIT\b/i.test(sqlCleaned)) {
+        query = `${sql.replace(/;\s*$/, "")}\nLIMIT ${effectiveLimit + 1}`
       }
 
       const resultSet = await client.query({
@@ -108,6 +116,9 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
     },
 
     async listSchemas(): Promise<string[]> {
+      if (!client) {
+        throw new Error("ClickHouse client not connected — call connect() first")
+      }
       const resultSet = await client.query({
         query: "SHOW DATABASES",
         format: "JSONEachRow",
@@ -117,6 +128,9 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
     },
 
     async listTables(schema: string): Promise<Array<{ name: string; type: string }>> {
+      if (!client) {
+        throw new Error("ClickHouse client not connected — call connect() first")
+      }
       const resultSet = await client.query({
         query: `SELECT name, engine
                 FROM system.tables
@@ -133,9 +147,11 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
     },
 
     async describeTable(schema: string, table: string): Promise<SchemaColumn[]> {
+      if (!client) {
+        throw new Error("ClickHouse client not connected — call connect() first")
+      }
       const resultSet = await client.query({
-        query: `SELECT name, type,
-                       position(type, 'Nullable') > 0 AS is_nullable
+        query: `SELECT name, type
                 FROM system.columns
                 WHERE database = {db:String}
                   AND table = {tbl:String}
@@ -147,7 +163,9 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
       return rows.map((r) => ({
         name: r.name as string,
         data_type: r.type as string,
-        nullable: r.is_nullable === 1 || r.is_nullable === true || r.is_nullable === "1",
+        // Detect Nullable from the type string directly — stable across all versions.
+        // LowCardinality(Nullable(T)) is also nullable (LowCardinality is a storage optimization).
+        nullable: /^(?:LowCardinality\(\s*)?Nullable\b/i.test((r.type as string) ?? ""),
       }))
     },
 

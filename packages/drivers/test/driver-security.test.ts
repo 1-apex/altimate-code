@@ -623,17 +623,6 @@ describe("Connection registry", () => {
       reset()
     })
 
-    test("ClickHouse gives helpful hint", async () => {
-      setConfigs({ ch: { type: "clickhouse" } as any })
-      try {
-        await get("ch")
-        expect.unreachable("Should have thrown")
-      } catch (e: any) {
-        expect(e.message).toContain("ClickHouse is not yet supported")
-        expect(e.message).toContain("clickhouse-client")
-      }
-    })
-
     test("Cassandra gives helpful hint", async () => {
       setConfigs({ cass: { type: "cassandra" } as any })
       try {

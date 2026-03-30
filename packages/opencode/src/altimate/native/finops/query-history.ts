@@ -124,10 +124,10 @@ SELECT
     0 as credits_used_cloud_services
 FROM system.query_log
 WHERE type = 'QueryFinish'
-  AND event_date >= today() - {days:UInt32}
+  AND event_date >= today() - __DAYS__
   AND is_initial_query = 1
 ORDER BY event_time DESC
-LIMIT {limit:UInt32}
+LIMIT __LIMIT__
 `
 
 // ---------------------------------------------------------------------------
@@ -169,8 +169,11 @@ function buildHistoryQuery(
   if (whType === "clickhouse") {
     const clampedDays = Math.max(1, Math.min(Math.floor(Number(days)) || 30, 365))
     const clampedLimit = Math.max(1, Math.min(Math.floor(Number(limit)) || 100, 10000))
-    const sql = CLICKHOUSE_HISTORY_SQL.replace("{days:UInt32}", String(clampedDays)).replace(
-      "{limit:UInt32}",
+    // Placeholders use __NAME__ format (not ClickHouse's {name:Type} syntax) to
+    // make clear these are string-substituted with clamped integer values, not
+    // ClickHouse query parameters.
+    const sql = CLICKHOUSE_HISTORY_SQL.replace("__DAYS__", String(clampedDays)).replace(
+      "__LIMIT__",
       String(clampedLimit),
     )
     return { sql, binds: [] }
