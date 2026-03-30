@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.15] - 2026-03-29
+
+### Added
+
+- **Plan agent two-step approach** — outline first, confirm, then expand; plan refinement loop with edit-in-place (capped at 5 revisions); approval phrase detection ("looks good", "proceed", "lgtm") (#556)
+- **Feature discovery & progressive disclosure** — contextual suggestions after warehouse connection (schema, SQL, lineage, PII); dbt auto-detection recommending `/dbt-develop`, `/dbt-troubleshoot` (#556)
+
+### Fixed
+
+- **SQL classifier fallback security hardening** — invert fallback to whitelist reads (not blacklist writes), handle multi-statement SQL, strip line comments, fix `HARD_DENY_PATTERN` `\s` → `\b`; fix `computeSqlFingerprint` referencing undefined `core` after safe-import refactor (#582)
+- **Edit tool nearest-match error messages** — `buildNotFoundMessage` with Levenshtein similarity search shows closest file content when `oldString` not found, helping LLM self-correct (#582)
+- **Webfetch failure caching and actionable errors** — session-level URL failure cache (404/410/451) with 5-min TTL; status-specific error messages telling the model whether to retry; URL sanitization in errors to prevent token leakage (#582)
+- **Nested `node_modules` in `NODE_PATH`** — `@altimateai/altimate-core` NAPI resolution now works for npm's hoisted and nested layouts (#576)
+- **Null guards across 8 tool formatters** — prevent literal `undefined` in user-facing output for sql-analyze, schema-inspect, sql-translate, dbt-manifest, finops, and warehouse tools; DuckDB auto-retry on `database is locked` (#571)
+- **Telemetry error classification** — add `http_error` class, expand connection/validation/permission patterns, redact sensitive keys in input signatures (#566)
+- **Pre-release review findings** — remove dead code, fix `classifySkillTrigger()` unknown trigger handling, add null guards in lineage/translate tools (#580)
+- **Binary alias hard copy** — use `cp` instead of symlink for `altimate-code` binary alias to fix cross-platform compatibility (#578)
+
+### Testing
+
+- Verdaccio sanity suite: 50 new tests across 3 phases, added to CI and release workflows (#560, #562)
+- 12 new tests for `buildNotFoundMessage`, `computeSqlFingerprint`, and webfetch error messages (#582)
+
 ## [0.5.14] - 2026-03-28
 
 ### Added
