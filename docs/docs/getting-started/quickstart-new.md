@@ -34,13 +34,13 @@ altimate
 
 ### Option A: Auto-detect from dbt profiles
 
-If you have `~/.dbt/profiles.yml` configured:
+If you have a `profiles.yml` — either in your home directory's `.dbt/` folder, in your project repo, or pointed to by `DBT_PROFILES_DIR`:
 
 ```bash
 /discover
 ```
 
-Altimate reads your dbt profiles and creates warehouse connections automatically. You'll see output like:
+Altimate searches for `profiles.yml` in this order: `DBT_PROFILES_DIR` env var → project root (next to `dbt_project.yml`) → `<home>/.dbt/profiles.yml`. It reads your dbt profiles and creates warehouse connections automatically. You'll see output like:
 
 ```
 Found dbt project: jaffle_shop (dbt-snowflake)

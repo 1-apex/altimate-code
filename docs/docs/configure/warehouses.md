@@ -467,9 +467,32 @@ The `/discover` command can automatically detect warehouse connections from:
 
 | Source | Detection |
 |--------|-----------|
-| dbt profiles | Parses `~/.dbt/profiles.yml` |
+| dbt profiles | Searches for `profiles.yml` (see resolution order below) |
 | Docker containers | Finds running PostgreSQL, MySQL, SQL Server, and ClickHouse containers |
 | Environment variables | Scans for `SNOWFLAKE_ACCOUNT`, `PGHOST`, `DATABRICKS_HOST`, etc. |
+
+### dbt profiles.yml resolution order
+
+When discovering dbt profiles, altimate checks the following locations **in priority order** and uses the first one found:
+
+| Priority | Location | Description |
+|----------|----------|-------------|
+| 1 | Explicit path | If you pass a `path` parameter to the `dbt_profiles` tool |
+| 2 | `DBT_PROFILES_DIR` env var | Standard dbt environment variable — set it to the directory containing your `profiles.yml` |
+| 3 | Project-local `profiles.yml` | A `profiles.yml` in your dbt project root (next to `dbt_project.yml`) |
+| 4 | `<home>/.dbt/profiles.yml` | The global default location (e.g., `~/.dbt/` on macOS/Linux, `%USERPROFILE%\.dbt\` on Windows) |
+
+This means teams that keep `profiles.yml` in their project repo (a common pattern for CI/CD) will have it detected automatically — no extra configuration needed.
+
+```bash
+# Option 1: Set the environment variable
+export DBT_PROFILES_DIR=/path/to/your/project
+
+# Option 2: Just put profiles.yml next to dbt_project.yml
+# Copy from default location (macOS/Linux)
+cp ~/.dbt/profiles.yml ./profiles.yml
+altimate /discover
+```
 
 See [Warehouse Tools](../data-engineering/tools/warehouse-tools.md) for the full list of environment variable signals.
 

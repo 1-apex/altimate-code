@@ -96,12 +96,40 @@ function mapConfig(dbtType: string, dbtConfig: Record<string, unknown>): Connect
 }
 
 /**
+ * Resolve the profiles.yml path using dbt's standard priority order:
+ * 1. Explicit path (if provided)
+ * 2. DBT_PROFILES_DIR environment variable
+ * 3. Project-local profiles.yml (in dbt project root)
+ * 4. ~/.dbt/profiles.yml (default)
+ */
+function resolveProfilesPath(explicitPath?: string, projectDir?: string): string {
+  if (explicitPath) return explicitPath
+
+  const envDir = process.env.DBT_PROFILES_DIR
+  if (envDir) {
+    const envPath = path.join(envDir, "profiles.yml")
+    if (fs.existsSync(envPath)) return envPath
+    // Warn when DBT_PROFILES_DIR is set but profiles.yml not found there —
+    // dbt CLI would error here, we fall through for graceful discovery
+    console.warn(`[dbt-profiles] DBT_PROFILES_DIR is set to "${envDir}" but no profiles.yml found there, falling through`)
+  }
+
+  if (projectDir) {
+    const projectPath = path.join(projectDir, "profiles.yml")
+    if (fs.existsSync(projectPath)) return projectPath
+  }
+
+  return path.join(os.homedir(), ".dbt", "profiles.yml")
+}
+
+/**
  * Parse dbt profiles.yml and return discovered connections.
  *
- * @param profilesPath - Path to profiles.yml. Defaults to ~/.dbt/profiles.yml
+ * @param profilesPath - Explicit path to profiles.yml
+ * @param projectDir - dbt project root directory (for project-local profiles.yml)
  */
-export async function parseDbtProfiles(profilesPath?: string): Promise<DbtProfileConnection[]> {
-  const resolvedPath = profilesPath ?? path.join(os.homedir(), ".dbt", "profiles.yml")
+export async function parseDbtProfiles(profilesPath?: string, projectDir?: string): Promise<DbtProfileConnection[]> {
+  const resolvedPath = resolveProfilesPath(profilesPath, projectDir)
 
   if (!fs.existsSync(resolvedPath)) {
     return []

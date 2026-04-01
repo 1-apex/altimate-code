@@ -472,7 +472,9 @@ export const ProjectScanTool = Tool.define("project_scan", {
       .then((r) => r.warehouses)
       .catch(() => [] as Array<{ name: string; type: string; database?: string }>)
 
-    const dbtProfiles = await Dispatcher.call("dbt.profiles", {})
+    const dbtProfiles = await Dispatcher.call("dbt.profiles", {
+      projectDir: dbtProject.found ? dbtProject.path : undefined,
+    })
       .then((r) => r.connections ?? [])
       .catch(() => [] as Array<{ name: string; type: string; config: Record<string, unknown> }>)
 
