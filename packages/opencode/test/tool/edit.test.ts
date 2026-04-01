@@ -238,11 +238,11 @@ describe("tool.edit", () => {
           // Read first
           FileTime.read(ctx.sessionID, filepath)
 
-          // Wait a bit to ensure different timestamps
-          await new Promise((resolve) => setTimeout(resolve, 100))
-
-          // Simulate external modification
+          // Simulate external modification with mtime 5s in the future
+          // to exceed the 50ms tolerance in FileTime.assert()
           await fs.writeFile(filepath, "modified externally", "utf-8")
+          const future = new Date(Date.now() + 5000)
+          await fs.utimes(filepath, future, future)
 
           // Try to edit with the new content
           const edit = await EditTool.init()

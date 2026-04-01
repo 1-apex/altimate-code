@@ -475,12 +475,40 @@ export namespace Telemetry {
         session_id: string
         tool_name: string
         tool_category: string
-        error_class: "parse_error" | "connection" | "timeout" | "validation" | "internal" | "permission" | "http_error" | "file_not_found" | "edit_mismatch" | "not_configured" | "resource_exhausted" | "unknown"
+        error_class: "parse_error" | "connection" | "timeout" | "validation" | "internal" | "permission" | "http_error" | "file_not_found" | "file_stale" | "edit_mismatch" | "not_configured" | "resource_exhausted" | "unknown"
         error_message: string
         input_signature: string
         masked_args?: string
         duration_ms: number
       }
+    // altimate_change start — FileTime observability: drift + assertion outcome tracking
+    // Tracks the gap between Node.js wall-clock and filesystem mtime at read time.
+    // Use to monitor whether the mtime clock-source change (PR #611) is preventing
+    // false stale-file errors, and detect environments with significant drift.
+    // KQL: customEvents | where name == "filetime_drift" | extend drift = todouble(customMeasurements.drift_ms)
+    | {
+        type: "filetime_drift"
+        timestamp: number
+        session_id: string
+        /** Absolute difference in ms between Date.now() and filesystem mtime */
+        drift_ms: number
+        /** True if filesystem mtime is ahead of wall-clock (the problematic direction) */
+        mtime_ahead: boolean
+      }
+    // Tracks FileTime.assert() outcomes: "stale" when a file fails the check.
+    // High volume of "stale" with low delta_ms suggests tolerance is too tight.
+    // KQL: customEvents | where name == "filetime_assert" | extend delta = todouble(customMeasurements.delta_ms)
+    | {
+        type: "filetime_assert"
+        timestamp: number
+        session_id: string
+        outcome: "stale"
+        /** mtime - readTime in ms (how far ahead the file's mtime is) */
+        delta_ms: number
+        /** Current tolerance threshold in ms */
+        tolerance_ms: number
+      }
+    // altimate_change end
     // altimate_change start — sql quality telemetry for issue prevention metrics
     | {
         type: "sql_quality"
@@ -761,6 +789,21 @@ export namespace Telemetry {
     // altimate_change end
     { class: "timeout", keywords: ["timeout", "etimedout", "bridge timeout", "timed out"] },
     { class: "permission", keywords: ["permission", "access denied", "permission denied", "unauthorized", "forbidden", "authentication"] },
+    // altimate_change start — http_error before validation to prevent "HTTP 404" matching "invalid"/"missing"
+    {
+      class: "http_error",
+      keywords: ["status code: 4", "status code: 5", "request failed with status", "http 404", "http 410", "http 429", "http 451", "http 403"],
+    },
+    // altimate_change end
+    // altimate_change start — split file_stale out of validation; remove "does not exist" (was catching HTTP 404s)
+    {
+      class: "file_stale",
+      keywords: [
+        "must read file",
+        "has been modified since",
+        "before overwriting",
+      ],
+    },
     {
       class: "validation",
       keywords: [
@@ -768,12 +811,9 @@ export namespace Telemetry {
         "invalid",
         "missing",
         "required",
-        "must read file",
-        "has been modified since",
-        "does not exist",
-        "before overwriting",
       ],
     },
+    // altimate_change end
     { class: "internal", keywords: ["internal", "assertion"] },
     // altimate_change start — resource_exhausted class for OOM/quota errors
     {
@@ -788,10 +828,6 @@ export namespace Telemetry {
       ],
     },
     // altimate_change end
-    {
-      class: "http_error",
-      keywords: ["status code: 4", "status code: 5", "request failed with status"],
-    },
   ]
   // altimate_change end
 

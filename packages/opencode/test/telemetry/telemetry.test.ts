@@ -1628,11 +1628,13 @@ describe("telemetry.classifyError", () => {
     expect(Telemetry.classifyError("Invalid dialect specified")).toBe("validation")
     expect(Telemetry.classifyError("Missing required field")).toBe("validation")
     expect(Telemetry.classifyError("Required parameter 'query' not provided")).toBe("validation")
-    // altimate_change start — expanded validation patterns
-    expect(Telemetry.classifyError("You must read file /path/to/file before overwriting it")).toBe("validation")
-    expect(Telemetry.classifyError("File has been modified since it was last read")).toBe("validation")
-    expect(Telemetry.classifyError("error: column foo does not exist")).toBe("validation")
-    expect(Telemetry.classifyError("You must read file before overwriting it. Use the Read tool first")).toBe("validation")
+    // altimate_change start — file_stale split out from validation; "does not exist" moved to http_error
+    // These are now classified as file_stale, not validation
+    expect(Telemetry.classifyError("You must read file /path/to/file before overwriting it")).toBe("file_stale")
+    expect(Telemetry.classifyError("File has been modified since it was last read")).toBe("file_stale")
+    expect(Telemetry.classifyError("You must read file before overwriting it. Use the Read tool first")).toBe("file_stale")
+    // HTTP 404 "does not exist" is now http_error
+    expect(Telemetry.classifyError("HTTP 404: https://example.com/page does not exist")).toBe("http_error")
     // altimate_change end
   })
 
@@ -1651,12 +1653,25 @@ describe("telemetry.classifyError", () => {
     expect(Telemetry.classifyError("Assertion failed: x > 0")).toBe("internal")
   })
 
+  // altimate_change start — file_stale class tests
+  test("classifies file_stale errors", () => {
+    expect(Telemetry.classifyError("You must read file /path/to/file before overwriting it")).toBe("file_stale")
+    expect(Telemetry.classifyError("File /foo.ts has been modified since it was last read")).toBe("file_stale")
+    expect(Telemetry.classifyError("Read the file before overwriting it")).toBe("file_stale")
+  })
+  // altimate_change end
+
   // altimate_change start — http_error class and priority ordering tests
   test("classifies http errors", () => {
     expect(Telemetry.classifyError("Request failed with status code: 404 (example.com)")).toBe("http_error")
     expect(Telemetry.classifyError("Request failed with status code: 500")).toBe("http_error")
     expect(Telemetry.classifyError("status code: 403")).toBe("http_error")
     expect(Telemetry.classifyError("Request failed with status")).toBe("http_error")
+    // altimate_change start — HTTP status codes in webfetch error messages
+    expect(Telemetry.classifyError("HTTP 404: https://example.com does not exist. Do NOT retry")).toBe("http_error")
+    expect(Telemetry.classifyError("HTTP 410: https://example.com has been permanently removed")).toBe("http_error")
+    expect(Telemetry.classifyError("HTTP 429: Rate limited by example.com")).toBe("http_error")
+    // altimate_change end
   })
 
   test("priority ordering: earlier patterns win over later ones", () => {
