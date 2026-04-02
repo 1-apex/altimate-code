@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.17] - 2026-04-02
+
+### Added
+
+- **Custom dbt `profiles.yml` path resolution** — Altimate Code now resolves `profiles.yml` using dbt's standard priority: explicit path → `DBT_PROFILES_DIR` env var → project-local `profiles.yml` → `~/.dbt/profiles.yml`. Teams using `DBT_PROFILES_DIR` in CI get zero-friction auto-discovery. Jinja `{{ env_var('NAME') }}` patterns are resolved automatically. A warning is shown when `DBT_PROFILES_DIR` is set but the file is not found. (#605)
+
+### Fixed
+
+- **ClickHouse: SQL comment injection bypass** — Comments could previously mask write statements from the read-only LIMIT guard. String literals are now stripped before comment removal to prevent false matches. (#591)
+- **ClickHouse: `LowCardinality(Nullable(...))` nullability** — Schema inspection previously reported these columns as non-nullable; now correctly detected as nullable. (#591)
+- **ClickHouse: connection lifecycle guards** — All query methods now throw a clear error if called before `connect()`, preventing cryptic TypeErrors. (#591)
+- **ClickHouse: `binds` parameter handling** — Queries with parameterized binds no longer throw a driver error; the parameter is safely ignored (ClickHouse uses `query_params` natively). (#591)
+- **Stale file retry loops on WSL and network drives** — `FileTime.read()` now uses filesystem mtime instead of wall-clock, eliminating 782-iteration retry loops caused by clock skew on WSL (NTFS-over-9P), NFS, and CIFS mounts. Set `OPENCODE_DISABLE_FILETIME_CHECK=true` as escape hatch if needed. (#611)
+- **Error classification: `file_stale` split and keyword fix** — `file_stale` is now a distinct error class; HTTP 4xx errors no longer misclassify as validation failures; restored `"does not exist"` keyword for SQL errors like `"column foo does not exist"`. (#611, #614)
+
 ## [0.5.16] - 2026-03-30
 
 ### Added
