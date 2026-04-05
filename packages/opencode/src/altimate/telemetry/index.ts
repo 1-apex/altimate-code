@@ -656,7 +656,6 @@ export namespace Telemetry {
         /** true when schema scan hit the column-scan cap — flags samples biased by large-warehouse truncation */
         schema_truncated: boolean
         duration_ms: number
-        error_message?: string
       }
     // altimate_change end
     // altimate_change start — config env-var interpolation telemetry

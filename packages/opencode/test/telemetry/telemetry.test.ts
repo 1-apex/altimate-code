@@ -247,11 +247,12 @@ const ALL_EVENT_TYPES: Telemetry.Event["type"][] = [
   "core_failure",
   "sql_pre_validation",
   "config_env_interpolation",
+  "plan_no_tool_generation",
 ]
 
 describe("telemetry.event-types", () => {
   test("all event types are valid", () => {
-    expect(ALL_EVENT_TYPES.length).toBe(44)
+    expect(ALL_EVENT_TYPES.length).toBe(45)
   })
 })
 
