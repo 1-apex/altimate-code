@@ -659,6 +659,20 @@ export namespace Telemetry {
         error_message?: string
       }
     // altimate_change end
+    // altimate_change start — plan-agent model tool-call refusal detection
+    | {
+        type: "plan_no_tool_generation"
+        timestamp: number
+        session_id: string
+        message_id: string
+        model_id: string
+        provider_id: string
+        /** "stop" finish_reason without any tool calls in the session — flags models that refuse to tool-call in plan mode */
+        finish_reason: string
+        /** output tokens on the stop-without-tools generation — helps distinguish "refused" (low) from "wrote a long text plan" (high) */
+        tokens_output: number
+      }
+    // altimate_change end
 
   /** SHA256 hash a masked error message for anonymous grouping. */
   export function hashError(maskedMessage: string): string {
