@@ -93,7 +93,7 @@ export namespace ConfigPaths {
   // Exported so other modules (e.g. mcp/discover) can reuse the exact same grammar
   // without forking the regex. See issue #635, #656.
   export const ENV_VAR_PATTERN =
-    /\$\$(\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\})|(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\{env:([^}]+)\}/g
+    /\$\$(\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\})|(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
 
   export interface EnvSubstitutionStats {
     dollarRefs: number

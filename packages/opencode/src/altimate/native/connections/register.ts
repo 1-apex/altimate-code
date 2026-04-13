@@ -39,7 +39,6 @@ import { Telemetry } from "../../../telemetry"
 
 /** Cached dbt adapter (lazily created on first use). */
 let dbtAdapter: any | null | undefined = undefined
-let dbtConfigChecked = false
 
 /**
  * Try to execute SQL via dbt's adapter (which uses profiles.yml for connection).
@@ -64,7 +63,6 @@ async function tryExecuteViaDbt(
       )
       const dbtConfig = await readDbtConfig()
       if (!dbtConfig) {
-        dbtConfigChecked = true
         dbtAdapter = null
         return null
       }
@@ -145,7 +143,6 @@ async function tryExecuteViaDbt(
 /** Reset dbt adapter (for testing). */
 export function resetDbtAdapter(): void {
   dbtAdapter = undefined
-  dbtConfigChecked = false
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +273,22 @@ export function buildExplainPlan(warehouseType: string | undefined, analyze: boo
 export function buildExplainPrefix(warehouseType: string | undefined, analyze: boolean): string {
   return buildExplainPlan(warehouseType, analyze).prefix
 }
+
+// altimate_change start — actionable alternatives for unsupported EXPLAIN
+function explainAlternative(warehouseType: string | undefined): string {
+  switch ((warehouseType ?? "").toLowerCase()) {
+    case "bigquery":
+      return "Use the BigQuery Console's Query Explanation tab, or run a dry-run query via `bq query --dry_run`."
+    case "oracle":
+      return "Use `EXPLAIN PLAN FOR <sql>` followed by `SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY)` in your SQL client."
+    case "mssql":
+    case "sqlserver":
+      return "Use `SET SHOWPLAN_TEXT ON` in SSMS or Azure Data Studio before running the query."
+    default:
+      return "This warehouse requires a different plan mechanism that sql_explain cannot issue directly."
+  }
+}
+// altimate_change end
 
 /**
  * Translate a raw warehouse/Registry error into an actionable message.
@@ -447,7 +460,7 @@ register("sql.explain", async (params: SqlExplainParams): Promise<SqlExplainResu
       return {
         success: false,
         plan_rows: [],
-        error: `sql_explain is not supported for warehouse type ${JSON.stringify(warehouseType)}. This warehouse requires a different plan mechanism (e.g. dry-run API, SET SHOWPLAN_TEXT ON, or DBMS_XPLAN) that sql_explain cannot issue directly.`,
+        error: `sql_explain is not supported for warehouse type ${JSON.stringify(warehouseType)}. ${explainAlternative(warehouseType)}`,
         warehouse_type: warehouseType,
         analyzed: false,
       }
