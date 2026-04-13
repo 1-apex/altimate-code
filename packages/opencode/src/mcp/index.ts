@@ -25,29 +25,6 @@ import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
 import { Telemetry } from "@/telemetry"
 
-// altimate_change start — resolve env-var references in MCP environment values
-// Handles ${VAR}, ${VAR:-default}, and {env:VAR} patterns that may have survived
-// config parsing (e.g. discovered external configs, config updates via updateGlobal).
-const ENV_VAR_PATTERN =
-  /\$\$(\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\})|(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\{env:([^}]+)\}/g
-
-export function resolveEnvVars(environment: Record<string, string>): Record<string, string> {
-  const resolved: Record<string, string> = {}
-  for (const [key, value] of Object.entries(environment)) {
-    resolved[key] = value.replace(ENV_VAR_PATTERN, (match, escaped, dollarVar, dollarDefault, braceVar) => {
-      if (escaped !== undefined) return "$" + escaped
-      if (dollarVar !== undefined) {
-        const envValue = process.env[dollarVar]
-        return envValue !== undefined && envValue !== "" ? envValue : (dollarDefault ?? "")
-      }
-      if (braceVar !== undefined) return process.env[braceVar] || ""
-      return match
-    })
-  }
-  return resolved
-}
-// altimate_change end
-
 export namespace MCP {
   const log = Log.create({ service: "mcp" })
   const DEFAULT_TIMEOUT = 30_000
@@ -532,8 +509,12 @@ export namespace MCP {
         env: {
           ...process.env,
           ...(cmd === "altimate" || cmd === "altimate-code" ? { BUN_BE_BUN: "1" } : {}),
-          // altimate_change start — resolve ${VAR} / {env:VAR} patterns that survived config parsing
-          ...(mcp.environment ? resolveEnvVars(mcp.environment) : {}),
+          // altimate_change start — env-var references in mcp.environment are resolved once
+          // at config load time: `ConfigPaths.substitute()` for `opencode.json`, and
+          // `resolveServerEnvVars()` for discovered external configs (`.vscode/mcp.json`,
+          // `.cursor/mcp.json`, etc.). A second pass here would re-expand already-resolved
+          // values and break the `$${VAR}` escape convention — see PR #666 review.
+          ...(mcp.environment ?? {}),
           // altimate_change end
         },
       })

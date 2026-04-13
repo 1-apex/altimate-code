@@ -1,107 +1,95 @@
-// altimate_change start — tests for MCP env-var interpolation (closes #656)
+// altimate_change start — tests for MCP env-var interpolation (closes #656, addresses PR #666 review)
 import { describe, test, expect, beforeEach, afterEach } from "bun:test"
 import { mkdir, writeFile } from "fs/promises"
 import path from "path"
-import { resolveEnvVars } from "../../src/mcp"
+import { ConfigPaths } from "../../src/config/paths"
 import { tmpdir } from "../fixture/fixture"
 
 // -------------------------------------------------------------------------
-// resolveEnvVars — safety-net resolver at MCP launch site
+// resolveEnvVarsInString — shared raw-string resolver in ConfigPaths
 // -------------------------------------------------------------------------
+// This is the single source of truth for env-var interpolation on already-parsed
+// string values. `ConfigPaths.substitute()` uses the same regex grammar but
+// JSON-escapes its output (because it runs on raw JSON text before parsing).
 
-describe("resolveEnvVars", () => {
-  const ORIGINAL_ENV = { ...process.env }
+describe("ConfigPaths.resolveEnvVarsInString", () => {
+  const KEYS_TO_CLEAR = [
+    "TEST_TOKEN",
+    "TEST_HOST",
+    "UNSET_VAR",
+    "COMPLETELY_UNSET_VAR_XYZ",
+    "UNSET_VAR_ABC",
+  ]
 
   beforeEach(() => {
     process.env["TEST_TOKEN"] = "secret-123"
     process.env["TEST_HOST"] = "gitlab.example.com"
+    delete process.env["UNSET_VAR"]
+    delete process.env["COMPLETELY_UNSET_VAR_XYZ"]
+    delete process.env["UNSET_VAR_ABC"]
   })
 
   afterEach(() => {
-    process.env = { ...ORIGINAL_ENV }
+    for (const k of KEYS_TO_CLEAR) delete process.env[k]
   })
 
   test("resolves ${VAR} syntax", () => {
-    const result = resolveEnvVars({
-      API_TOKEN: "${TEST_TOKEN}",
-      HOST: "${TEST_HOST}",
-    })
-    expect(result.API_TOKEN).toBe("secret-123")
-    expect(result.HOST).toBe("gitlab.example.com")
+    expect(ConfigPaths.resolveEnvVarsInString("${TEST_TOKEN}")).toBe("secret-123")
+    expect(ConfigPaths.resolveEnvVarsInString("${TEST_HOST}")).toBe("gitlab.example.com")
   })
 
   test("resolves {env:VAR} syntax", () => {
-    const result = resolveEnvVars({
-      API_TOKEN: "{env:TEST_TOKEN}",
-    })
-    expect(result.API_TOKEN).toBe("secret-123")
+    expect(ConfigPaths.resolveEnvVarsInString("{env:TEST_TOKEN}")).toBe("secret-123")
   })
 
   test("resolves ${VAR:-default} with fallback when unset", () => {
-    const result = resolveEnvVars({
-      MODE: "${UNSET_VAR:-production}",
-    })
-    expect(result.MODE).toBe("production")
+    expect(ConfigPaths.resolveEnvVarsInString("${UNSET_VAR:-production}")).toBe("production")
   })
 
   test("resolves ${VAR:-default} to env value when set", () => {
-    const result = resolveEnvVars({
-      TOKEN: "${TEST_TOKEN:-fallback}",
-    })
-    expect(result.TOKEN).toBe("secret-123")
+    expect(ConfigPaths.resolveEnvVarsInString("${TEST_TOKEN:-fallback}")).toBe("secret-123")
   })
 
   test("preserves $${VAR} as literal ${VAR}", () => {
-    const result = resolveEnvVars({
-      TEMPLATE: "$${TEST_TOKEN}",
-    })
-    expect(result.TEMPLATE).toBe("${TEST_TOKEN}")
+    expect(ConfigPaths.resolveEnvVarsInString("$${TEST_TOKEN}")).toBe("${TEST_TOKEN}")
   })
 
-  test("resolves unset variable to empty string", () => {
-    const result = resolveEnvVars({
-      MISSING: "${COMPLETELY_UNSET_VAR_XYZ}",
-    })
-    expect(result.MISSING).toBe("")
+  test("resolves unset variable with no default to empty string", () => {
+    expect(ConfigPaths.resolveEnvVarsInString("${COMPLETELY_UNSET_VAR_XYZ}")).toBe("")
   })
 
   test("passes through plain values without modification", () => {
-    const result = resolveEnvVars({
-      PLAIN: "just-a-string",
-      URL: "https://gitlab.com/api/v4",
-    })
-    expect(result.PLAIN).toBe("just-a-string")
-    expect(result.URL).toBe("https://gitlab.com/api/v4")
+    expect(ConfigPaths.resolveEnvVarsInString("just-a-string")).toBe("just-a-string")
+    expect(ConfigPaths.resolveEnvVarsInString("https://gitlab.com/api/v4")).toBe("https://gitlab.com/api/v4")
   })
 
   test("resolves multiple variables in a single value", () => {
-    const result = resolveEnvVars({
-      URL: "https://${TEST_HOST}/api?token=${TEST_TOKEN}",
-    })
-    expect(result.URL).toBe("https://gitlab.example.com/api?token=secret-123")
-  })
-
-  test("handles mixed resolved and plain entries", () => {
-    const result = resolveEnvVars({
-      TOKEN: "${TEST_TOKEN}",
-      STATIC_URL: "https://gitlab.com/api/v4",
-      HOST: "{env:TEST_HOST}",
-    })
-    expect(result.TOKEN).toBe("secret-123")
-    expect(result.STATIC_URL).toBe("https://gitlab.com/api/v4")
-    expect(result.HOST).toBe("gitlab.example.com")
+    expect(ConfigPaths.resolveEnvVarsInString("https://${TEST_HOST}/api?token=${TEST_TOKEN}")).toBe(
+      "https://gitlab.example.com/api?token=secret-123",
+    )
   })
 
   test("does not interpolate bare $VAR without braces", () => {
-    const result = resolveEnvVars({
-      TOKEN: "$TEST_TOKEN",
-    })
-    expect(result.TOKEN).toBe("$TEST_TOKEN")
+    expect(ConfigPaths.resolveEnvVarsInString("$TEST_TOKEN")).toBe("$TEST_TOKEN")
   })
 
-  test("handles empty environment object", () => {
-    const result = resolveEnvVars({})
-    expect(result).toEqual({})
+  test("records unresolved variable names in stats", () => {
+    const stats = ConfigPaths.newEnvSubstitutionStats()
+    ConfigPaths.resolveEnvVarsInString("${COMPLETELY_UNSET_VAR_XYZ}", stats)
+    expect(stats.dollarUnresolved).toBe(1)
+    expect(stats.unresolvedNames).toContain("COMPLETELY_UNSET_VAR_XYZ")
+  })
+
+  test("does NOT double-expand a resolved ${VAR} value that itself contains ${OTHER}", () => {
+    // Single-pass: a value like `prefix ${FOO}` resolves to the env value of FOO,
+    // and even if that value is itself a `${...}` string, it is NOT re-resolved.
+    // This is the CRITICAL regression from PR #666 — no chain injection.
+    process.env["EVIL"] = "${TEST_TOKEN}"
+    try {
+      expect(ConfigPaths.resolveEnvVarsInString("${EVIL}")).toBe("${TEST_TOKEN}")
+    } finally {
+      delete process.env["EVIL"]
+    }
   })
 })
 
@@ -110,15 +98,22 @@ describe("resolveEnvVars", () => {
 // -------------------------------------------------------------------------
 
 describe("discoverExternalMcp with env-var interpolation", () => {
-  const ORIGINAL_ENV = { ...process.env }
+  const KEYS_TO_CLEAR = [
+    "TEST_MCP_TOKEN",
+    "TEST_MCP_HOST",
+    "UNSET_VAR_ABC",
+    "EVIL_MCP_VAR",
+    "TEST_MCP_SECRET",
+  ]
 
   beforeEach(() => {
     process.env["TEST_MCP_TOKEN"] = "glpat-secret-token"
     process.env["TEST_MCP_HOST"] = "https://gitlab.internal.com"
+    delete process.env["UNSET_VAR_ABC"]
   })
 
   afterEach(() => {
-    process.env = { ...ORIGINAL_ENV }
+    for (const k of KEYS_TO_CLEAR) delete process.env[k]
   })
 
   test("resolves ${VAR} in discovered .vscode/mcp.json environment", async () => {
@@ -204,6 +199,136 @@ describe("discoverExternalMcp with env-var interpolation", () => {
 
     const env = (servers["svc"] as any).environment
     expect(env.MODE).toBe("production")
+  })
+
+  // ---------- regression tests from PR #666 review ----------
+
+  test("regression: $${VAR} survives end-to-end as literal ${VAR}", async () => {
+    // Pre-fix: Layer 1 (parseText in readJsonSafe) would turn `$${VAR}` into `${VAR}`,
+    // then Layer 2 (resolveEnvVars at MCP launch) would re-resolve it to the env value.
+    // After the fix: single resolution in transform() → `$${VAR}` → `${VAR}` and stays.
+    await using tmp = await tmpdir()
+    const dir = tmp.path
+    await mkdir(path.join(dir, ".vscode"), { recursive: true })
+    await writeFile(
+      path.join(dir, ".vscode/mcp.json"),
+      JSON.stringify({
+        servers: {
+          svc: {
+            command: "node",
+            args: ["svc.js"],
+            env: {
+              TEMPLATE: "$${TEST_MCP_TOKEN}",
+            },
+          },
+        },
+      }),
+    )
+
+    const { discoverExternalMcp } = await import("../../src/mcp/discover")
+    const { servers } = await discoverExternalMcp(dir)
+
+    const env = (servers["svc"] as any).environment
+    expect(env.TEMPLATE).toBe("${TEST_MCP_TOKEN}")
+  })
+
+  test("regression: chain-injection — env var whose value contains ${OTHER} is not re-resolved", async () => {
+    // Pre-fix: EVIL_MCP_VAR="${TEST_MCP_SECRET}" in shell. Config references ${EVIL_MCP_VAR}.
+    // Layer 1 resolved to `"${TEST_MCP_SECRET}"` literal, then Layer 2 resolved that literal
+    // to the actual secret — exfiltrating TEST_MCP_SECRET even though the config only
+    // referenced EVIL_MCP_VAR. After the fix: single pass, result is the literal string.
+    process.env["EVIL_MCP_VAR"] = "${TEST_MCP_SECRET}"
+    process.env["TEST_MCP_SECRET"] = "leaked-secret-value"
+
+    await using tmp = await tmpdir()
+    const dir = tmp.path
+    await mkdir(path.join(dir, ".vscode"), { recursive: true })
+    await writeFile(
+      path.join(dir, ".vscode/mcp.json"),
+      JSON.stringify({
+        servers: {
+          svc: {
+            command: "node",
+            args: ["svc.js"],
+            env: {
+              X: "${EVIL_MCP_VAR}",
+            },
+          },
+        },
+      }),
+    )
+
+    const { discoverExternalMcp } = await import("../../src/mcp/discover")
+    const { servers } = await discoverExternalMcp(dir)
+
+    const env = (servers["svc"] as any).environment
+    expect(env.X).toBe("${TEST_MCP_SECRET}")
+    expect(env.X).not.toBe("leaked-secret-value")
+  })
+
+  test("regression: resolves ${VAR} in headers for remote MCP servers", async () => {
+    // The original PR only fixed environment. Headers (Authorization, etc.)
+    // commonly contain tokens and need the same resolution.
+    await using tmp = await tmpdir()
+    const dir = tmp.path
+    await mkdir(path.join(dir, ".vscode"), { recursive: true })
+    await writeFile(
+      path.join(dir, ".vscode/mcp.json"),
+      JSON.stringify({
+        servers: {
+          "remote-svc": {
+            url: "https://api.example.com/mcp",
+            headers: {
+              Authorization: "Bearer ${TEST_MCP_TOKEN}",
+              "X-Host": "${TEST_MCP_HOST}",
+              "X-Static": "fixed-value",
+            },
+          },
+        },
+      }),
+    )
+
+    const { discoverExternalMcp } = await import("../../src/mcp/discover")
+    const { servers } = await discoverExternalMcp(dir)
+
+    expect(servers["remote-svc"]).toBeDefined()
+    expect(servers["remote-svc"].type).toBe("remote")
+    const headers = (servers["remote-svc"] as any).headers
+    expect(headers.Authorization).toBe("Bearer glpat-secret-token")
+    expect(headers["X-Host"]).toBe("https://gitlab.internal.com")
+    expect(headers["X-Static"]).toBe("fixed-value")
+  })
+
+  test("scopes resolution to env/headers — does not touch command args or URLs", async () => {
+    // Regression guard for Major #5 from the PR review: env-var substitution must not
+    // run over the whole JSON text. Only env and headers values should be resolved.
+    await using tmp = await tmpdir()
+    const dir = tmp.path
+    await mkdir(path.join(dir, ".vscode"), { recursive: true })
+    await writeFile(
+      path.join(dir, ".vscode/mcp.json"),
+      JSON.stringify({
+        servers: {
+          // command args contain ${TEST_MCP_TOKEN} — must NOT be resolved
+          svc: {
+            command: "node",
+            args: ["--token=${TEST_MCP_TOKEN}", "server.js"],
+          },
+          "remote-svc": {
+            // URL contains ${TEST_MCP_HOST} — must NOT be resolved
+            url: "https://${TEST_MCP_HOST}/mcp",
+          },
+        },
+      }),
+    )
+
+    const { discoverExternalMcp } = await import("../../src/mcp/discover")
+    const { servers } = await discoverExternalMcp(dir)
+
+    const local = servers["svc"] as any
+    expect(local.command).toEqual(["node", "--token=${TEST_MCP_TOKEN}", "server.js"])
+    const remote = servers["remote-svc"] as any
+    expect(remote.url).toBe("https://${TEST_MCP_HOST}/mcp")
   })
 })
 // altimate_change end
