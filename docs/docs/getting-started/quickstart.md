@@ -75,20 +75,23 @@ Switch providers at any time by updating the `provider` and `model` fields in `a
     }
     ```
 
-=== "AWS Bedrock"
+=== "Amazon Bedrock"
 
     ```json
     {
       "provider": {
-        "bedrock": {
-          "region": "us-east-1",
-          "accessKeyId": "{env:AWS_ACCESS_KEY_ID}",
-          "secretAccessKey": "{env:AWS_SECRET_ACCESS_KEY}"
+        "amazon-bedrock": {
+          "options": {
+            "region": "us-east-1"
+          }
         }
       },
-      "model": "bedrock/anthropic.claude-sonnet-4-6-v1"
+      "model": "amazon-bedrock/anthropic.claude-sonnet-4-6-v1"
     }
     ```
+
+    Uses the standard AWS credential chain (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, IAM roles, SSO).
+    For custom API gateways, see [Bedrock Custom Endpoints](../configure/bedrock-custom-endpoints.md).
 
 === "Azure OpenAI"
 

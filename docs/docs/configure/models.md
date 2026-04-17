@@ -73,7 +73,7 @@ Models are referenced as `provider/model-name`:
 |----------|--------------|
 | Anthropic | `anthropic/claude-sonnet-4-6` |
 | OpenAI | `openai/gpt-4o` |
-| AWS Bedrock | `bedrock/anthropic.claude-sonnet-4-6-v1` |
+| Amazon Bedrock | `amazon-bedrock/anthropic.claude-sonnet-4-6-v1` |
 | Azure | `azure/gpt-4o` |
 | Google | `google/gemini-2.5-pro` |
 | Ollama | `ollama/llama3.1` |

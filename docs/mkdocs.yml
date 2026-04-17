@@ -119,6 +119,7 @@ nav:
       - LLMs:
           - Providers: configure/providers.md
           - Models: configure/models.md
+          - Bedrock Custom Endpoints: configure/bedrock-custom-endpoints.md
       - MCPs & ACPs:
           - MCP Servers: configure/mcp-servers.md
           - ACP Support: configure/acp.md
