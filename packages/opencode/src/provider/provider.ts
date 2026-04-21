@@ -1115,10 +1115,14 @@ export namespace Provider {
     // altimate_change start — register altimate-backend as an OpenAI-compatible provider
     if (!database["altimate-backend"]) {
       const backendModels: Record<string, Model> = {
+        // ID "altimate-default" is kept for backward compatibility — existing
+        // users have it persisted in their model.json favorites/recents and in
+        // opencode.json `model:` entries. Display name ("Altimate LLM Gateway")
+        // is what the TUI actually shows, so branding stays correct.
         "altimate-default": {
           id: ModelID.make("altimate-default"),
           providerID: ProviderID.make("altimate-backend"),
-          name: "Altimate AI",
+          name: "Altimate LLM Gateway",
           family: "openai",
           api: { id: "altimate-default", url: "", npm: "@ai-sdk/openai-compatible" },
           status: "active",
@@ -1141,7 +1145,7 @@ export namespace Provider {
       }
       database["altimate-backend"] = {
         id: ProviderID.make("altimate-backend"),
-        name: "Altimate",
+        name: "Altimate AI",
         source: "custom",
         env: [],
         options: {},

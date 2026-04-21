@@ -4,6 +4,9 @@ import { Global } from "../../global"
 import { Filesystem } from "../../util/filesystem"
 
 const DEFAULT_MCP_URL = "https://mcpserver.getaltimate.com/sse"
+// altimate_change start — default Altimate API URL when user omits it from the TUI credential entry
+const DEFAULT_ALTIMATE_URL = "https://api.myaltimate.com"
+// altimate_change end
 
 const AltimateCredentials = z.object({
   altimateUrl: z.string(),
@@ -81,18 +84,40 @@ export namespace AltimateApi {
     }
   }
 
+  /**
+   * Parse a user-entered Altimate credential string into its component fields.
+   *
+   * Accepts two `::`-delimited forms:
+   *   - 2 parts: `instance-name::api-key` — URL defaults to {@link DEFAULT_ALTIMATE_URL}.
+   *   - 3+ parts: `api-url::instance-name::api-key` — first segment is the API base URL
+   *     and must be http(s)://. Extra `::` segments are joined back into the API key.
+   *
+   * Returns `null` if the input is malformed (fewer than 2 parts, empty fields,
+   * or a non-http(s) URL in the 3-part form).
+   */
   export function parseAltimateKey(value: string): {
     altimateUrl: string
     altimateInstanceName: string
     altimateApiKey: string
   } | null {
     const parts = value.trim().split("::")
-    if (parts.length < 3) return null
-    const url = parts[0].trim()
-    const instance = parts[1].trim()
-    const key = parts.slice(2).join("::").trim()
+    // altimate_change start — 2 parts means no URL was given (use default); 3+ parts means URL was given
+    if (parts.length < 2) return null
+    let url: string
+    let instance: string
+    let key: string
+    if (parts.length === 2) {
+      url = DEFAULT_ALTIMATE_URL
+      instance = parts[0].trim()
+      key = parts[1].trim()
+    } else {
+      url = parts[0].trim()
+      instance = parts[1].trim()
+      key = parts.slice(2).join("::").trim()
+    }
     if (!url || !instance || !key) return null
     if (!url.startsWith("http://") && !url.startsWith("https://")) return null
+    // altimate_change end
     return { altimateUrl: url, altimateInstanceName: instance, altimateApiKey: key }
   }
 

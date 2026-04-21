@@ -217,10 +217,14 @@ function ApiMethod(props: ApiMethodProps) {
   const [validationError, setValidationError] = createSignal<string | null>(null)
   // altimate_change end
 
+  // altimate_change start — altimate-backend placeholder matches the credential format
+  const placeholder = props.providerID === "altimate-backend" ? "instance-name::api-key" : "API key"
+  // altimate_change end
+
   return (
     <DialogPrompt
       title={props.title}
-      placeholder="API key"
+      placeholder={placeholder}
       description={
         {
           opencode: (
@@ -252,10 +256,13 @@ function ApiMethod(props: ApiMethodProps) {
                 Enter your Altimate credentials in this format:
               </text>
               <text fg={theme.text}>
-                instance-url::instance-name::api-key
+                instance-name::api-key
               </text>
               <text fg={theme.textMuted}>
-                e.g. https://api.getaltimate.com::mycompany::abc123
+                e.g. mycompany::abc123 (uses https://api.myaltimate.com)
+              </text>
+              <text fg={theme.textMuted}>
+                For a custom API URL, use: api-url::instance-name::api-key
               </text>
               <Show when={validationError()}>
                 <text fg={theme.error}>{validationError()!}</text>
@@ -271,7 +278,7 @@ function ApiMethod(props: ApiMethodProps) {
         if (props.providerID === "altimate-backend") {
           const parsed = AltimateApi.parseAltimateKey(value)
           if (!parsed) {
-            setValidationError("Invalid format — use: instance-url::instance-name::api-key")
+            setValidationError("Invalid format — use: instance-name::api-key (or api-url::instance-name::api-key for a custom URL)")
             return
           }
           const validation = await AltimateApi.validateCredentials(parsed)
