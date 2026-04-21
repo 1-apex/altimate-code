@@ -254,6 +254,7 @@ function ApiMethod(props: ApiMethodProps) {
           // altimate_change start — altimate-backend credential format description
           "altimate-backend": (
             <box gap={1}>
+              {/* altimate_change start — default-URL credential format (2-part preferred) */}
               <text fg={theme.textMuted}>
                 Enter your Altimate credentials in this format:
               </text>
@@ -266,6 +267,7 @@ function ApiMethod(props: ApiMethodProps) {
               <text fg={theme.textMuted}>
                 For a custom API URL, use: api-url::instance-name::api-key
               </text>
+              {/* altimate_change end */}
               <Show when={validationError()}>
                 <text fg={theme.error}>{validationError()!}</text>
               </Show>

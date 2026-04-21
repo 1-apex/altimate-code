@@ -1143,7 +1143,9 @@ export namespace Config {
         })
         .catchall(Agent)
         .optional()
+        // altimate_change start — altimate docs URL
         .describe("Agent configuration, see https://docs.altimate.sh/configure/agents/"),
+        // altimate_change end
       provider: z
         .record(z.string(), Provider)
         .optional()
