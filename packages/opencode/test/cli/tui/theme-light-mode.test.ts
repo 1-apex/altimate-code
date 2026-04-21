@@ -139,7 +139,7 @@ function getSyntaxRules(theme: Theme): SyntaxRule[] {
     },
     {
       scope: ["markup.raw.inline"],
-      style: { foreground: theme.markdownCode, background: theme.background },
+      style: { foreground: theme.markdownCode, background: theme.backgroundElement },
     },
     { scope: ["markup.link"], style: { foreground: theme.markdownLink, underline: true } },
     { scope: ["spell", "nospell"], style: { foreground: theme.text } },
@@ -350,6 +350,21 @@ describe("dark theme: regression check", () => {
 
       expect(defaultRule.style.foreground).toBeDefined()
       expect(defaultRule.style.foreground!.a).toBeGreaterThan(0)
+    },
+  )
+
+  test.each(DARK_THEMES)(
+    "%s: markup.raw.inline background is opaque in dark mode (issue #704 cross-mode regression)",
+    (_name, themeJson) => {
+      const resolved = resolveTheme(themeJson, "dark")
+      const rules = getSyntaxRules(resolved)
+
+      const inlineRule = rules.find((r) => r.scope.includes("markup.raw.inline"))!
+      expect(inlineRule.style.background).toBeDefined()
+      expect(inlineRule.style.background!.a).toBeGreaterThan(0)
+
+      const ratio = contrastRatio(inlineRule.style.foreground!, inlineRule.style.background!)
+      expect(ratio).toBeGreaterThanOrEqual(2)
     },
   )
 })

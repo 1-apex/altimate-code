@@ -110,9 +110,18 @@ import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { TuiConfigProvider } from "./context/tui-config"
 import { TuiConfig } from "@/config/tui"
 
+// altimate_change start — fix: pure helper extracted to util/terminal-detection for test coverage (#704)
+import { detectModeFromCOLORFGBG } from "./util/terminal-detection"
+// altimate_change end
+
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
   if (!process.stdin.isTTY) return "dark"
+
+  // altimate_change start — fix: check COLORFGBG eagerly to avoid 1s startup delay on terminals without OSC 11 (#704)
+  const envMode = detectModeFromCOLORFGBG(process.env.COLORFGBG)
+  if (envMode === "light") return "light"
+  // altimate_change end
 
   return new Promise((resolve) => {
     let timeout: NodeJS.Timeout

@@ -430,9 +430,16 @@ export function tint(base: RGBA, overlay: RGBA, alpha: number): RGBA {
 
 function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJson {
   const bg = RGBA.fromHex(colors.defaultBackground ?? colors.palette[0]!)
-  const fg = RGBA.fromHex(colors.defaultForeground ?? colors.palette[7]!)
   const transparent = RGBA.fromInts(0, 0, 0, 0)
   const isDark = mode == "dark"
+
+  // altimate_change start — fix: light-mode foreground fallback (#704)
+  // Dark mode keeps palette[7] (standard light-gray fg on dark bg).
+  // Light mode: palette[7] is typically #c0c0c0 — invisible on white.
+  // Prefer the user's palette[0] (near-black) when present; #1a1a1a otherwise.
+  const fgFallback = isDark ? colors.palette[7]! : (colors.palette[0] ?? "#1a1a1a")
+  const fg = RGBA.fromHex(colors.defaultForeground ?? fgFallback)
+  // altimate_change end
 
   const col = (i: number) => {
     const value = colors.palette[i]
@@ -948,7 +955,9 @@ function getSyntaxRules(theme: Theme) {
       scope: ["markup.raw.inline"],
       style: {
         foreground: theme.markdownCode,
-        background: theme.background, // inline code blends with page background
+        // altimate_change start — fix: inline code contrast on transparent backgrounds
+        background: theme.backgroundElement,
+        // altimate_change end
       },
     },
     {
