@@ -5,6 +5,21 @@ description: Validate that two tables or query results are identical — or diag
 
 # Data Parity (Table Diff)
 
+## CRITICAL: Regulated / Sensitive Data
+
+`data_diff` includes up to 5 **sample diff rows** in the tool output so you can see *which* values differ. Those rows are part of the conversation and are sent to the LLM provider you're using.
+
+Before running `data_diff` against a table that might contain PII, PHI, PCI, or other regulated data:
+
+1. **Ask the user** whether the target contains regulated columns.
+2. If yes, prefer `algorithm: "profile"` — it compares column-level statistics (count, nulls, min/max, distinct count) without any row values leaving the database.
+3. If a row-level diff is genuinely required, tell the user that up to 5 sample rows will be sent to the LLM and get explicit approval before calling the tool.
+4. Consider scoping with `where_clause` to exclude sensitive customers/accounts first.
+
+Default to profile mode whenever the table name suggests regulated data (`customers`, `patients`, `orders`, `payments`, `accounts`, `users`, etc.) unless the user explicitly requests row-level comparison.
+
+---
+
 ## CRITICAL: Always Start With a Plan
 
 **Before doing anything else**, generate a numbered TODO list for the user:

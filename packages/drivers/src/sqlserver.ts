@@ -164,6 +164,10 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
           let azCliStderr = ""
 
           try {
+            // @azure/identity is an optional peer dependency — dynamic import so users
+            // who don't use Azure AD don't need to install it. Types are resolved at
+            // runtime via the installed package.
+            // @ts-expect-error — optional peer; types only present when installed
             const azureIdentity = await import("@azure/identity")
             const credential = new azureIdentity.DefaultAzureCredential(
               config.azure_client_id
@@ -175,7 +179,7 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
               token = tokenResponse.token
               // @azure/identity provides expiresOnTimestamp (ms). Prefer it; fall
               // back to parsing the JWT exp claim so both paths share the cache.
-              expiresAt = tokenResponse.expiresOnTimestamp ?? parseTokenExpiry(token)
+              expiresAt = tokenResponse.expiresOnTimestamp ?? parseTokenExpiry(tokenResponse.token)
             }
           } catch (err) {
             azureIdentityError = err
@@ -193,6 +197,19 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
               const childProcess = await import("node:child_process")
               const { promisify } = await import("node:util")
               const execFileAsync = promisify(childProcess.execFile)
+              // Restrict the inherited environment so unrelated secrets in the caller's
+              // env (e.g. DATABRICKS_TOKEN, cloud provider keys) are NOT passed to `az`
+              // or any `az` extension. Pass through only the PATH/HOME essentials and
+              // Azure-specific variables `az` actually needs.
+              const restrictedEnv: NodeJS.ProcessEnv = {}
+              for (const k of [
+                "PATH", "HOME", "USER", "USERPROFILE", "LOCALAPPDATA", "APPDATA",
+                "AZURE_CONFIG_DIR", "AZURE_EXTENSION_DIR", "AZURE_CORE_NO_COLOR",
+                "SYSTEMROOT", "TEMP", "TMP", "LANG", "LC_ALL",
+              ]) {
+                const v = process.env[k]
+                if (v !== undefined) restrictedEnv[k] = v
+              }
               const { stdout } = await execFileAsync(
                 "az",
                 [
@@ -201,7 +218,7 @@ export async function connect(config: ConnectionConfig): Promise<Connector> {
                   "--query", "accessToken",
                   "-o", "tsv",
                 ],
-                { encoding: "utf-8", timeout: 15000 },
+                { encoding: "utf-8", timeout: 15000, env: restrictedEnv },
               )
               const out = String(stdout).trim()
               if (out) {

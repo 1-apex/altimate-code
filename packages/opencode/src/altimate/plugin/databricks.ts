@@ -7,6 +7,19 @@ import { Auth, OAUTH_DUMMY_KEY } from "@/auth"
  */
 export const VALID_HOST_RE = /^[a-zA-Z0-9._-]+\.(cloud\.databricks\.com|azuredatabricks\.net|gcp\.databricks\.com)$/
 
+/**
+ * Validate a Databricks workspace host. Returns true only when the host
+ * matches the whitelist regex AND contains no control/whitespace characters
+ * (CR/LF/tab/space) — JS regex `$` matches before a trailing `\n`, so the
+ * explicit check prevents CRLF-style injection if the value is ever spliced
+ * into a URL or header.
+ */
+export function isValidDatabricksHost(host: string): boolean {
+  if (!host) return false
+  if (/[\r\n\t\s]/.test(host)) return false
+  return VALID_HOST_RE.test(host)
+}
+
 /** Parse a `host::token` credential string for Databricks PAT auth. */
 export function parseDatabricksPAT(code: string): { host: string; token: string } | null {
   const sep = code.indexOf("::")
@@ -14,7 +27,7 @@ export function parseDatabricksPAT(code: string): { host: string; token: string 
   const host = code.substring(0, sep).trim()
   const token = code.substring(sep + 2).trim()
   if (!host || !token) return null
-  if (!VALID_HOST_RE.test(host)) return null
+  if (!isValidDatabricksHost(host)) return null
   return { host, token }
 }
 
@@ -43,6 +56,11 @@ export async function DatabricksAuthPlugin(_input: PluginInput): Promise<Hooks> 
       async loader(getAuth, provider) {
         const auth = await getAuth()
         if (auth.type !== "oauth") return {}
+
+        // Host validation lives in the provider loader (see provider.ts) —
+        // the plugin auth type doesn't expose accountId. The provider loader
+        // re-validates with `isValidDatabricksHost` on every config load, so
+        // a tampered auth.json can't redirect `baseURL` to an unknown host.
 
         for (const model of Object.values(provider.models)) {
           model.cost = { input: 0, output: 0, cache: { read: 0, write: 0 } }
@@ -87,8 +105,14 @@ export async function DatabricksAuthPlugin(_input: PluginInput): Promise<Hooks> 
                   body = result.body
                   headers.delete("content-length")
                 }
-              } catch {
-                // JSON parse error — pass original body through untransformed
+              } catch (err) {
+                // JSON parse error — pass original body through untransformed.
+                // Body transformation is best-effort; the request continues
+                // unchanged so the upstream endpoint can return its own error.
+                if (process.env["DEBUG"]) {
+                  // eslint-disable-next-line no-console
+                  console.debug("databricks: body transform skipped", err)
+                }
               }
             }
 

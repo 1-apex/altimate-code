@@ -289,6 +289,50 @@ Billing flows through your Snowflake credits — no per-token costs.
 !!! note
     Model availability depends on your Snowflake region. Enable cross-region inference with `ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION'` for full model access.
 
+## Databricks AI Gateway
+
+Connect to Databricks serving endpoints (Foundation Model APIs) via your workspace PAT. Use Databricks-hosted Llama, Claude, GPT, Gemini, DBRX, or Mixtral for agent reasoning — billing flows through your Databricks account.
+
+```json
+{
+  "provider": {
+    "databricks": {}
+  },
+  "model": "databricks/databricks-claude-sonnet-4-6"
+}
+```
+
+Authenticate with `altimate auth databricks` and enter credentials as `workspace-host::pat-token`:
+
+```text
+myworkspace.cloud.databricks.com::dapi1234567890abcdef
+```
+
+Or set environment variables:
+
+```bash
+export DATABRICKS_HOST=myworkspace.cloud.databricks.com
+export DATABRICKS_TOKEN=dapi1234567890abcdef
+```
+
+Create a PAT in Databricks: **Settings → Developer → Access Tokens → Generate New Token**.
+
+**Supported workspace domains:** `*.cloud.databricks.com` (AWS), `*.azuredatabricks.net` (Azure), `*.gcp.databricks.com` (GCP).
+
+**Available models:**
+
+| Provider | Models |
+|----------|--------|
+| Meta Llama | `databricks-meta-llama-3-1-405b-instruct`, `databricks-meta-llama-3-1-70b-instruct`, `databricks-meta-llama-3-1-8b-instruct` |
+| Anthropic via Databricks | `databricks-claude-sonnet-4-6`, `databricks-claude-opus-4-6` |
+| OpenAI via Databricks | `databricks-gpt-5-4`, `databricks-gpt-5-mini` |
+| Google via Databricks | `databricks-gemini-3-1-pro` |
+| Databricks native | `databricks-dbrx-instruct` |
+| Mistral (tool calls unsupported) | `databricks-mixtral-8x7b-instruct` |
+
+!!! note
+    Databricks bills directly for these models — altimate-code reports `$0` cost for Databricks-routed requests since pricing depends on your Databricks contract.
+
 ## Custom / OpenAI-Compatible
 
 Any OpenAI-compatible endpoint can be used as a provider:

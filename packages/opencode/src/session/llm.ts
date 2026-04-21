@@ -272,12 +272,21 @@ export namespace LLM {
   // definition. When agents switch (e.g. Plan→Builder) or MCP tools disconnect, the history
   // may reference tools no longer in the active set. This function extracts those names so
   // stub definitions can be added. Fixes #678.
+  //
+  // Tool names must match the API's allowed character set (Anthropic: `[a-zA-Z0-9_-]{1,64}`).
+  // If a loaded session file was tampered with, names with shell metacharacters, ANSI escapes,
+  // or excessive length are silently dropped rather than registered as stubs.
+  const VALID_TOOL_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/
   export function toolNamesFromMessages(messages: ModelMessage[]): Set<string> {
     const names = new Set<string>()
     for (const msg of messages) {
       if (!Array.isArray(msg.content)) continue
       for (const part of msg.content) {
-        if (part.type === "tool-call" || part.type === "tool-result") names.add(part.toolName)
+        if (part.type === "tool-call" || part.type === "tool-result") {
+          if (typeof part.toolName === "string" && VALID_TOOL_NAME_RE.test(part.toolName)) {
+            names.add(part.toolName)
+          }
+        }
       }
     }
     return names

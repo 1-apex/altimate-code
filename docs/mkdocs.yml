@@ -110,6 +110,7 @@ nav:
       - Guides:
           - Cost Optimization: data-engineering/guides/cost-optimization.md
           - Migration: data-engineering/guides/migration.md
+          - Data Parity: data-engineering/guides/data-parity.md
           - Using with Claude Code: data-engineering/guides/using-with-claude-code.md
           - Using with Codex: data-engineering/guides/using-with-codex.md
           - ClickHouse: data-engineering/guides/clickhouse.md

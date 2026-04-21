@@ -16,7 +16,14 @@ export const DataDiffTool = Tool.define("data_diff", {
     "- auto: JoinDiff if same dialect, HashDiff if cross-database (default)",
     "- joindiff: FULL OUTER JOIN (fast, same-database only)",
     "- hashdiff: Bisection with checksums (cross-database, any scale)",
-    "- profile: Column-level statistics comparison",
+    "- profile: Column-level statistics comparison (no row-level diff)",
+    "- cascade: Profile first, then HashDiff on columns that diverged",
+    "",
+    "For very large tables (>10M rows), set partition_column to split work into smaller",
+    "independent diffs (see partition_column parameter for modes).",
+    "",
+    "⚠ Compliance note: sample diff rows (up to 5) appear in tool output and are sent to the",
+    "LLM provider. If comparing PII/PHI/PCI data, use algorithm='profile' (stats only, no values).",
   ].join("\n"),
   parameters: z.object({
     source: z.string().describe(

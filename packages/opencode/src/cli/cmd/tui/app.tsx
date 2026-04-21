@@ -689,7 +689,9 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
+        // altimate_change start — altimate docs URL
         open("https://docs.altimate.sh").catch(() => {})
+        // altimate_change end
         dialog.clear()
       },
       category: "System",

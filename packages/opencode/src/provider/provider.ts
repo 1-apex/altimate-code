@@ -51,7 +51,7 @@ import { ModelID, ProviderID } from "./schema"
 import { VALID_ACCOUNT_RE } from "../altimate/plugin/snowflake"
 // altimate_change end
 // altimate_change start — databricks host validation
-import { VALID_HOST_RE } from "../altimate/plugin/databricks"
+import { isValidDatabricksHost } from "../altimate/plugin/databricks"
 // altimate_change end
 
 const DEFAULT_CHUNK_TIMEOUT = 120_000
@@ -744,6 +744,7 @@ export namespace Provider {
         const host = Env.get("DATABRICKS_HOST")
         const token = Env.get("DATABRICKS_TOKEN")
         if (!host || !token) return { autoload: false }
+        if (!isValidDatabricksHost(host)) return { autoload: false }
         return {
           autoload: true,
           options: {
@@ -753,7 +754,7 @@ export namespace Provider {
         }
       }
       const host = auth.accountId ?? Env.get("DATABRICKS_HOST")
-      if (!host || !VALID_HOST_RE.test(host)) return { autoload: false }
+      if (!host || !isValidDatabricksHost(host)) return { autoload: false }
       return {
         autoload: true,
         options: {
@@ -1145,7 +1146,9 @@ export namespace Provider {
       }
       database["altimate-backend"] = {
         id: ProviderID.make("altimate-backend"),
+        // altimate_change start — rebranded display name: "Altimate" → "Altimate AI"
         name: "Altimate AI",
+        // altimate_change end
         source: "custom",
         env: [],
         options: {},

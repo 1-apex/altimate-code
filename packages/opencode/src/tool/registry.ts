@@ -240,7 +240,9 @@ export namespace ToolRegistry {
       SqlFixTool,
       SqlAutocompleteTool,
       SqlDiffTool,
+      // altimate_change start — data-parity tool
       DataDiffTool,
+      // altimate_change end
       FinopsQueryHistoryTool,
       FinopsAnalyzeCreditsTool,
       FinopsExpensiveQueriesTool,

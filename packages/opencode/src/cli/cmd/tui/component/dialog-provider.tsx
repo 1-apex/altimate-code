@@ -224,7 +224,9 @@ function ApiMethod(props: ApiMethodProps) {
   return (
     <DialogPrompt
       title={props.title}
+      // altimate_change start — altimate-backend custom placeholder
       placeholder={placeholder}
+      // altimate_change end
       description={
         {
           opencode: (
