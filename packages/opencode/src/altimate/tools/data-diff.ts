@@ -203,7 +203,11 @@ function formatOutcome(outcome: any, source: string, target: string): string {
       lines.push(`  Sample differences (first ${Math.min(diffRows.length, 5)}):`)
       for (const d of diffRows.slice(0, 5)) {
         const label = d.sign === "-" ? "source only" : "target only"
-        lines.push(`    [${label}] ${d.values?.join(" | ")}`)
+        // `d.values?.join(" | ") ?? "(no values)"` misses the common case where
+        // `values` is an empty array — `[].join(" | ")` returns "" (not null),
+        // so the coalesce never triggers. Gate on length explicitly.
+        const values = d.values?.length ? d.values.join(" | ") : "(no values)"
+        lines.push(`    [${label}] ${values}`)
       }
     }
 
