@@ -40,6 +40,11 @@ export const SqlFixTool = Tool.define("sql_fix", {
   },
 })
 
+// Exported for unit tests.
+export const _sqlFixInternal = {
+  formatFix: (result: SqlFixResult) => formatFix(result),
+}
+
 function formatFix(result: SqlFixResult): string {
   const lines: string[] = []
 

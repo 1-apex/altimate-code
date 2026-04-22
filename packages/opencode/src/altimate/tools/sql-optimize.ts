@@ -72,6 +72,13 @@ export const SqlOptimizeTool = Tool.define("sql_optimize", {
   },
 })
 
+// Exported for unit tests.
+export const _sqlOptimizeInternal = {
+  impactBadge: (impact: string) => impactBadge(impact),
+  formatSuggestion: (s: SqlOptimizeSuggestion, index: number) => formatSuggestion(s, index),
+  formatOptimization: (result: SqlOptimizeResult) => formatOptimization(result),
+}
+
 function impactBadge(impact: string): string {
   switch (impact) {
     case "high":

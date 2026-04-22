@@ -51,6 +51,11 @@ export const SqlTranslateTool = Tool.define("sql_translate", {
   },
 })
 
+// Exported for unit tests.
+export const _sqlTranslateInternal = {
+  formatTranslation: (result: SqlTranslateResult, originalSql: string) => formatTranslation(result, originalSql),
+}
+
 function formatTranslation(result: SqlTranslateResult, originalSql: string): string {
   if (!result.success) {
     return `Translation failed: ${result.error ?? "Unknown error"}`
